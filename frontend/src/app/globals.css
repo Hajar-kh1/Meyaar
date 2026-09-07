@@ -1,5 +1,46 @@
 @import "tailwindcss";
 
+/* Thmanyah Sans is used throughout the Arabic interface. */
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-light.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-black.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+}
+
 :root {
   --background: #f7f7f4;
   --foreground: #172a33;
@@ -35,6 +76,17 @@ body {
   color: var(--foreground);
   font-family: "Segoe UI", Tahoma, Arial, sans-serif;
   text-rendering: optimizeLegibility;
+}
+
+html[lang="ar"] body {
+  font-family: "Thmanyah Sans", "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+html[lang="ar"] button,
+html[lang="ar"] input,
+html[lang="ar"] select,
+html[lang="ar"] textarea {
+  font-family: inherit;
 }
 
 button,
