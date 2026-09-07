@@ -143,6 +143,36 @@ const translations: Record<string, string> = {
   "Review the run summary and export audit-ready results.": "راجع ملخص التشغيل وصدّر النتائج الجاهزة للتقرير.",
   "Ask grounded questions about the current validation run.": "اطرح أسئلة مرتبطة بنتائج الفحص الحالي.",
   "Monitor your team members and their validation activity.": "تابع أعضاء فريقك وأنشطة الفحص الخاصة بهم.",
+  "Team overview": "نظرة عامة على الفريق",
+  "My workspace": "مساحة عملي",
+  "Welcome": "مرحبًا",
+  "Manage teams": "إدارة الفرق",
+  "Saved files": "الملفات المحفوظة",
+  "Detected errors": "الأخطاء المكتشفة",
+  "Compliance": "نسبة الالتزام",
+  "Needs review": "تحتاج مراجعة",
+  "Across all analyses": "في جميع التحليلات",
+  "Average quality score": "متوسط جودة البيانات",
+  "Files with errors": "ملفات تحتوي أخطاء",
+  "Usage": "الاستخدام",
+  "Quality": "الجودة",
+  "Latest": "الأحدث",
+  "Vector": "بيانات متجهة",
+  "Imagery": "صور",
+  "Average": "المتوسط",
+  "Best": "الأفضل",
+  "No activity": "لا يوجد نشاط",
+  "Recent files": "أحدث الملفات",
+  "Open a file to view its map, errors and report.": "افتح ملفًا لعرض الأخطاء والتقرير.",
+  "Employee": "الموظف",
+  "Type": "النوع",
+  "Open": "فتح",
+  "Opening...": "جارٍ الفتح...",
+  "Loading dashboard...": "جارٍ تحميل لوحة التحكم...",
+  "No files have been analyzed yet.": "لم يتم تحليل أي ملف بعد.",
+  "Upload the first file": "ارفع أول ملف",
+  "Vector validation": "فحص البيانات المتجهة",
+  "Imagery analysis": "تحليل الصور",
 };
 
 interface LanguageContextValue {
@@ -163,10 +193,21 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dir = direction;
   }, [direction, language]);
 
+  useEffect(() => {
+    const saved = window.localStorage.getItem("meyaar-language");
+    if (saved !== "ar" && saved !== "en") return;
+    const frame = window.requestAnimationFrame(() => setLanguage(saved));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   const value = useMemo<LanguageContextValue>(() => ({
     language,
     direction,
-    toggleLanguage: () => setLanguage((current) => current === "en" ? "ar" : "en"),
+    toggleLanguage: () => setLanguage((current) => {
+      const next = current === "en" ? "ar" : "en";
+      window.localStorage.setItem("meyaar-language", next);
+      return next;
+    }),
     t: (text) => language === "ar" ? translations[text] ?? text : text,
   }), [direction, language]);
 

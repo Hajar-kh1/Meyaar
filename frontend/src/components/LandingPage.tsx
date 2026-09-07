@@ -36,11 +36,11 @@ export default function LandingPage({ onStart }: LandingPageProps) {
         <DisplayControls />
       </header>
 
-      <section id="platform" className="relative mx-auto h-[calc(100vh-54px)] min-h-[500px] max-h-[586px] max-w-[1280px] overflow-hidden bg-[#dfeeff]">
+      <section id="platform" className="relative mx-auto min-h-[calc(100vh-54px)] max-w-[1280px] overflow-hidden bg-[#dfeeff] sm:min-h-[560px]">
         <Image src={language === "ar" ? "/branding/riyadh-hero-rtl-hq.png" : "/branding/riyadh-hero-en-premium.png"} alt="Riyadh skyline" fill priority sizes="100vw" unoptimized className="object-cover object-center" />
         <div className="meyaar-hero-overlay absolute inset-0 bg-[linear-gradient(90deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)] rtl:bg-[linear-gradient(270deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)]" />
 
-        <div className="relative z-10 grid h-full items-center px-7 pb-20 pt-5 sm:px-12 lg:px-16 xl:px-20">
+        <div className="relative z-10 grid min-h-[calc(100vh-54px)] items-center px-7 pb-40 pt-8 sm:min-h-[560px] sm:px-12 sm:pb-28 lg:px-16 xl:px-20">
           <div id="about" className="max-w-[520px] py-3">
             <div className="mb-4 flex items-center gap-3 text-[9px] font-extrabold uppercase tracking-[0.28em] text-[#31577f]"><span>{t("Geospatial AI Platform")}</span><span className="h-px w-10 bg-blue-500/60" /></div>
             <h1 className="text-[2.15rem] font-black leading-[1.05] tracking-[-0.04em] sm:text-[2.35rem] xl:text-[2.5rem]">
@@ -49,12 +49,12 @@ export default function LandingPage({ onStart }: LandingPageProps) {
             </h1>
             <p className="mt-4 max-w-[460px] text-[13px] leading-[1.55] text-slate-600">{t("Detect spatial changes, validate map accuracy, identify inconsistencies, and generate AI-powered recommendations across satellite, aerial, and vector data.")}</p>
             <div className="mt-5 flex flex-wrap gap-2.5">
-              <button type="button" onClick={onStart} className="rounded-lg bg-blue-600 px-4 py-2.5 text-[11px] font-extrabold text-white shadow-[0_8px_20px_rgba(37,99,235,.24)] transition hover:-translate-y-0.5 hover:bg-blue-700">{t("Start Validation")} <span aria-hidden="true">→</span></button>
+              <button type="button" onClick={onStart} className="rounded-lg bg-blue-600 px-4 py-2.5 text-[11px] font-extrabold text-white shadow-[0_8px_20px_rgba(37,99,235,.24)] transition hover:-translate-y-0.5 hover:bg-blue-700"><span>{t("Start Validation")}</span> <span className="inline-block rtl:rotate-180" aria-hidden="true">→</span></button>
             </div>
           </div>
         </div>
 
-        <div id="capabilities" className="relative z-20 mx-7 mb-4 grid gap-3 sm:absolute sm:bottom-5 sm:left-12 sm:mx-0 sm:mb-0 sm:w-[560px] sm:grid-cols-3 lg:left-16 xl:left-20 rtl:sm:left-auto rtl:sm:right-12 rtl:lg:right-16 rtl:xl:right-20">
+        <div id="capabilities" className="absolute inset-x-5 bottom-5 z-20 grid grid-cols-3 gap-1 rounded-2xl border border-white/15 bg-white/10 p-2 backdrop-blur-sm sm:inset-x-auto sm:left-12 sm:w-[560px] lg:left-16 xl:left-20 rtl:sm:left-auto rtl:sm:right-12 rtl:lg:right-16 rtl:xl:right-20">
           {capabilities.map((item, index) => <div key={item.title} className={`flex min-h-[58px] items-center gap-2.5 px-3 py-1 ${index > 0 ? "sm:border-s sm:border-slate-400/40" : ""}`}><span className="flex size-8 shrink-0 items-center justify-center text-blue-600"><CapabilityIcon type={item.icon} /></span><div><p className="text-xs font-extrabold text-[#071c33]">{t(item.title)}</p><p className="mt-0.5 text-[10px] text-slate-600">{t(item.subtitle)}</p></div></div>)}
         </div>
       </section>

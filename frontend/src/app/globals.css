@@ -52,7 +52,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: "Segoe UI", Tahoma, Arial, sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-blue-50: #eef6f8;
   --color-blue-100: #dcecf1;
@@ -78,15 +78,18 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+html[lang="ar"],
 html[lang="ar"] body {
   font-family: "Thmanyah Sans", "Segoe UI", Tahoma, Arial, sans-serif;
 }
 
-html[lang="ar"] button,
-html[lang="ar"] input,
-html[lang="ar"] select,
-html[lang="ar"] textarea {
-  font-family: inherit;
+/* Force inherited utility fonts to respect the Arabic typeface everywhere. */
+html[lang="ar"] body :where(*:not(code):not(pre):not(kbd):not(samp)) {
+  font-family: "Thmanyah Sans", "Segoe UI", Tahoma, Arial, sans-serif !important;
+}
+
+html[lang="ar"] :where(h1, h2, h3, h4, h5, h6, p, a, button, label, th, td) {
+  letter-spacing: 0 !important;
 }
 
 button,
@@ -130,6 +133,10 @@ textarea:focus-visible {
 .dark .bg-white\/85 { background-color: rgb(24 51 62 / .96); }
 .dark .bg-slate-50 { background-color: #17313c; }
 .dark .bg-slate-100 { background-color: #1d3a46; }
+.dark .bg-blue-50 { background-color: #193d4b; }
+.dark .bg-blue-100 { background-color: #204b5c; }
+.dark .from-white { --tw-gradient-from: #18333e; --tw-gradient-to: rgb(24 51 62 / 0); }
+.dark .to-blue-50 { --tw-gradient-to: #193d4b; }
 .dark .text-slate-950,
 .dark .text-slate-900,
 .dark .text-slate-800,
@@ -144,6 +151,9 @@ textarea:focus-visible {
 .dark input,
 .dark select,
 .dark textarea { color: #edf4f5; }
+.dark tr:hover { background-color: #1b3945; }
+.dark .shadow-sm,
+.dark .shadow-xl { box-shadow: 0 1px 3px rgb(0 0 0 / .24); }
 .dark input::placeholder,
 .dark textarea::placeholder { color: #829aa3; }
 .dark .meyaar-hero-overlay { background: linear-gradient(90deg, rgb(15 32 40 / .98) 0%, rgb(20 48 59 / .9) 34%, rgb(24 57 69 / .5) 58%, rgb(10 28 36 / .08) 78%); }
