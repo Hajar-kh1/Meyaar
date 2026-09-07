@@ -22,8 +22,8 @@ export default function LandingPage({ onStart }: LandingPageProps) {
   const { language, t } = useLanguage();
 
   return (
-    <main className="min-h-screen overflow-hidden bg-background text-[#071c33]">
-      <header className="relative z-30 mx-auto mt-2 flex h-14 w-[calc(100%-1rem)] items-center justify-between gap-5 rounded-2xl border border-slate-200/70 bg-white/95 px-5 shadow-[0_10px_30px_rgba(15,23,42,.07)] backdrop-blur-xl sm:w-[85%] sm:px-8 lg:px-10">
+    <main className="relative min-h-screen overflow-hidden bg-background text-[#071c33]">
+      <header className="absolute inset-x-0 top-2 z-30 mx-auto flex h-14 w-[calc(100%-1rem)] items-center justify-between gap-5 rounded-2xl border border-slate-200/70 bg-white/95 px-5 shadow-[0_10px_30px_rgba(15,23,42,.07)] backdrop-blur-xl sm:w-[85%] sm:px-8 lg:px-10">
         <a href="#platform" className="flex items-center gap-3" aria-label="Meyaar home">
           <span className="relative size-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"><Image src="/branding/meyaar-logo.png" alt="Meyaar" fill sizes="32px" className="object-cover" /></span>
           <span className="text-base font-black tracking-[0.08em] text-blue-600">MEYAAR</span>
@@ -36,7 +36,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
         <DisplayControls />
       </header>
 
-      <section id="platform" className="relative mx-auto min-h-[620px] max-w-[1600px] overflow-hidden bg-[#dfeeff] sm:h-[calc(100svh-56px)] sm:min-h-[500px]">
+      <section id="platform" className="relative mx-auto min-h-[620px] max-w-[1600px] overflow-hidden bg-[#dfeeff] sm:h-[100svh] sm:min-h-[500px]">
         <Image src="/branding/riyadh-smart-city-hero.png" alt={language === "ar" ? "مشهد مدينة الرياض الذكية" : "Riyadh smart city skyline"} fill priority sizes="(max-width: 1280px) 100vw, 1280px" unoptimized className="meyaar-hero-image object-cover object-center" />
         <div className="meyaar-hero-overlay absolute inset-0 bg-[linear-gradient(90deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)] rtl:bg-[linear-gradient(270deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)]" />
 
