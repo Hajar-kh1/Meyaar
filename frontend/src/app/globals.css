@@ -92,6 +92,16 @@ html[lang="ar"] :where(h1, h2, h3, h4, h5, h6, p, a, button, label, th, td) {
   letter-spacing: 0 !important;
 }
 
+/* The landing artwork follows the reading direction without duplicating assets. */
+.meyaar-hero-image {
+  transform: scaleX(1.01);
+  transition: transform 500ms cubic-bezier(.2, .8, .2, 1);
+}
+
+html[dir="rtl"] .meyaar-hero-image {
+  transform: scaleX(-1.01);
+}
+
 button,
 a,
 input,
