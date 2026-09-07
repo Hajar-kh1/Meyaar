@@ -21,15 +21,15 @@ const items: Array<{ view: AppView; label: string; icon: string }> = [
 export default function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
   const { t } = useLanguage();
   return (
-    <aside className="flex w-full shrink-0 flex-col bg-[#071c33] text-white shadow-2xl shadow-slate-950/10 lg:fixed lg:inset-y-0 lg:left-0 lg:w-56 rtl:lg:left-auto rtl:lg:right-0">
-      <div className="flex h-[72px] items-center gap-3 border-b border-white/10 px-5">
+    <aside className="fixed inset-x-0 bottom-0 z-[3000] flex shrink-0 flex-col bg-[#173846] text-white shadow-[0_-8px_30px_rgba(15,42,53,.14)] lg:inset-y-0 lg:left-0 lg:right-auto lg:w-56 lg:shadow-2xl lg:shadow-slate-950/10 rtl:lg:left-auto rtl:lg:right-0">
+      <div className="hidden h-[72px] items-center gap-3 border-b border-white/10 px-5 lg:flex">
         <Image src="/branding/meyaar-logo.png" alt="Meyaar logo" width={38} height={38} className="size-9 rounded-lg bg-white object-cover shadow-md ring-1 ring-white/20" />
         <p className="text-lg font-black tracking-[0.08em] text-white">MEYAAR</p>
       </div>
-      <nav className="flex gap-2 overflow-x-auto p-3 lg:flex-1 lg:flex-col lg:overflow-visible lg:p-4 lg:pt-5">
+      <nav className="grid grid-cols-5 gap-1 p-2 lg:flex lg:flex-1 lg:flex-col lg:gap-2 lg:overflow-visible lg:p-4 lg:pt-5">
         {items.map((item) => (
-          <button key={item.view} type="button" onClick={() => onNavigate(item.view)} className={`flex min-w-fit items-center gap-2.5 rounded-xl px-3.5 py-3 text-[13px] font-semibold transition lg:w-full ${activeView === item.view ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}>
-            <span className="w-5 text-center text-base">{item.icon}</span>{t(item.label)}
+          <button key={item.view} type="button" onClick={() => onNavigate(item.view)} className={`flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[9px] font-semibold transition lg:w-full lg:flex-row lg:gap-2.5 lg:px-3.5 lg:py-3 lg:text-[13px] ${activeView === item.view ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/20' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}>
+            <span className="w-5 text-center text-base">{item.icon}</span><span className="max-w-full truncate">{t(item.label)}</span>
           </button>
         ))}
       </nav>

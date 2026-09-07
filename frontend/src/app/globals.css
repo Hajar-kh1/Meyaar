@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f7f4;
+  --foreground: #172a33;
+  --meyaar-ink: #173846;
+  --meyaar-accent: #2f6f89;
+  --meyaar-surface: #ffffff;
 }
 
 @theme inline {
@@ -10,17 +13,57 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-blue-50: #eef6f8;
+  --color-blue-100: #dcecf1;
+  --color-blue-200: #bfdbe4;
+  --color-blue-300: #91bdcb;
+  --color-blue-400: #629bb0;
+  --color-blue-500: #43839b;
+  --color-blue-600: #2f6f89;
+  --color-blue-700: #265b70;
+  --color-blue-800: #204b5c;
+  --color-blue-900: #193d4b;
+  --color-blue-950: #102b36;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(.2, .8, .2, 1);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgb(67 131 155 / .25);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #bfdbe4;
+  color: #102b36;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #bfd0d6; border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
