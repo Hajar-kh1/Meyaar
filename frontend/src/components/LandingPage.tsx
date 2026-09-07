@@ -41,7 +41,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
         <div className="meyaar-hero-overlay absolute inset-0 bg-[linear-gradient(90deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)] rtl:bg-[linear-gradient(270deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)]" />
 
         <div className="relative z-10 grid min-h-[620px] items-center px-7 pb-52 pt-8 sm:h-full sm:min-h-0 sm:px-12 sm:pb-28 lg:px-16 xl:px-20">
-          <div id="about" className="max-w-[520px] py-2 sm:-translate-y-4">
+          <div id="about" className="max-w-[520px] translate-y-2 py-2 sm:translate-y-3">
             <div className="mb-4 flex items-center gap-3 text-[9px] font-extrabold uppercase tracking-[0.28em] text-[#31577f]"><span>{t("Geospatial AI Platform")}</span><span className="h-px w-10 bg-blue-500/60" /></div>
             <h1 className="text-[2.15rem] font-black leading-[1.05] tracking-[-0.04em] sm:text-[2.35rem] xl:text-[2.5rem]">
               <span className="block">{t("Validate Geospatial Data.")}</span>
