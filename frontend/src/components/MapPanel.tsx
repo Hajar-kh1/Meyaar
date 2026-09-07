@@ -47,6 +47,7 @@ export default function MapPanel({
   const [showLayer, setShowLayer] = useState(true);
   const [showErrors, setShowErrors] = useState(true);
   const [resetKey, setResetKey] = useState(0);
+  const [basemap, setBasemap] = useState<"map" | "satellite">("map");
   const errors = isVectorResult(result)
     ? result.validation.errors.filter(
         (error) => error.geometry,
@@ -88,7 +89,11 @@ export default function MapPanel({
         )}
       </div>
 
-      <div className="min-h-[420px]">
+      <div className="relative min-h-[420px]">
+        <div className="absolute end-3 top-3 z-[900] flex rounded-xl border border-white/70 bg-white/95 p-1 shadow-lg backdrop-blur">
+          <button type="button" onClick={() => setBasemap("map")} aria-pressed={basemap === "map"} className={`rounded-lg px-3 py-2 text-xs font-bold ${basemap === "map" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{t("Map")}</button>
+          <button type="button" onClick={() => setBasemap("satellite")} aria-pressed={basemap === "satellite"} className={`rounded-lg px-3 py-2 text-xs font-bold ${basemap === "satellite" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{t("Satellite")}</button>
+        </div>
         <LeafletMap
           errors={errors}
           selectedErrorId={selectedErrorId}
@@ -96,6 +101,7 @@ export default function MapPanel({
           showLayer={showLayer}
           showErrors={showErrors}
           resetKey={resetKey}
+          basemap={basemap}
         />
       </div>
     </section>

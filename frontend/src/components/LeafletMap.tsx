@@ -28,6 +28,7 @@ interface LeafletMapProps {
   showLayer: boolean;
   showErrors: boolean;
   resetKey: number;
+  basemap: "map" | "satellite";
 }
 
 
@@ -194,6 +195,7 @@ export default function LeafletMap({
   showLayer,
   showErrors,
   resetKey,
+  basemap,
 }: LeafletMapProps) {
   const [currentZoom, setCurrentZoom] = useState(6);
   const data = useMemo<FeatureCollection<
@@ -225,10 +227,19 @@ export default function LeafletMap({
       scrollWheelZoom
       className="h-full min-h-[420px] w-full"
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      {basemap === "satellite" ? (
+        <TileLayer
+          key="satellite"
+          attribution="Tiles &copy; Esri"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        />
+      ) : (
+        <TileLayer
+          key="map"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+      )}
 
       <ZoomTracker onZoomChange={setCurrentZoom} />
 

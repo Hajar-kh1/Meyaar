@@ -39,6 +39,7 @@ const translations: Record<string, string> = {
   "Personal information": "المعلومات الشخصية",
   "Dashboard": "لوحة التحكم",
   "Map": "الخريطة",
+  "Satellite": "الأقمار الصناعية",
   "Analysis": "التحليل",
   "All systems online": "جميع الأنظمة تعمل",
   "Backend offline": "الخادم غير متصل",
