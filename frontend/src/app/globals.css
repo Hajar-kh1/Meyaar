@@ -169,6 +169,16 @@ textarea:focus-visible {
 .dark .meyaar-hero-overlay { background: linear-gradient(90deg, rgb(15 32 40 / .98) 0%, rgb(20 48 59 / .9) 34%, rgb(24 57 69 / .5) 58%, rgb(10 28 36 / .08) 78%); }
 .dark[dir="rtl"] .meyaar-hero-overlay { background: linear-gradient(270deg, rgb(15 32 40 / .98) 0%, rgb(20 48 59 / .9) 34%, rgb(24 57 69 / .5) 58%, rgb(10 28 36 / .08) 78%); }
 
+.dark .meyaar-capabilities {
+  background: rgb(20 48 59 / .94);
+  border-color: rgb(145 189 203 / .28);
+  box-shadow: 0 14px 38px rgb(0 0 0 / .28);
+}
+
+.dark .meyaar-capabilities p:first-child { color: #f2f7f8; }
+.dark .meyaar-capabilities p:last-child { color: #b7cbd2; }
+.dark .meyaar-capabilities svg { color: #72acc0; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }

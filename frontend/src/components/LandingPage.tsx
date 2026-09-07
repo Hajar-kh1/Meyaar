@@ -54,7 +54,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
           </div>
         </div>
 
-        <div id="capabilities" className="absolute inset-x-5 bottom-4 z-20 grid grid-cols-1 gap-1 rounded-2xl border border-white/30 bg-white/80 p-2 shadow-lg backdrop-blur-md sm:left-12 sm:right-auto sm:w-[600px] sm:grid-cols-3 lg:left-16 xl:left-20 rtl:sm:left-auto rtl:sm:right-12 rtl:lg:right-16 rtl:xl:right-20">
+        <div id="capabilities" className="meyaar-capabilities absolute inset-x-5 bottom-4 z-20 grid grid-cols-1 gap-1 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-[0_14px_40px_rgba(7,28,51,.16)] backdrop-blur-xl sm:left-12 sm:right-auto sm:w-[600px] sm:grid-cols-3 lg:left-16 xl:left-20 rtl:sm:left-auto rtl:sm:right-12 rtl:lg:right-16 rtl:xl:right-20">
           {capabilities.map((item, index) => <div key={item.title} className={`flex min-h-[58px] items-center gap-2.5 px-3 py-1 ${index > 0 ? "sm:border-s sm:border-slate-400/40" : ""}`}><span className="flex size-8 shrink-0 items-center justify-center text-blue-600"><CapabilityIcon type={item.icon} /></span><div><p className="text-xs font-extrabold text-[#071c33]">{t(item.title)}</p><p className="mt-0.5 text-[10px] text-slate-600">{t(item.subtitle)}</p></div></div>)}
         </div>
       </section>
