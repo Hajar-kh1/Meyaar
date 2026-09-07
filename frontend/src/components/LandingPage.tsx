@@ -22,13 +22,13 @@ export default function LandingPage({ onStart }: LandingPageProps) {
   const { language, t } = useLanguage();
 
   return (
-    <main className="min-h-screen bg-background text-[#071c33]">
-      <header className="mx-auto flex h-[54px] max-w-[1280px] items-center justify-between gap-6 px-6 sm:px-10 lg:px-16 xl:px-20">
+    <main className="min-h-screen overflow-hidden bg-background text-[#071c33]">
+      <header className="relative z-30 mx-auto flex h-14 max-w-[1600px] items-center justify-between gap-5 border-b border-slate-200/70 bg-white/95 px-5 shadow-[0_2px_12px_rgba(15,23,42,.04)] backdrop-blur-xl sm:px-8 lg:px-12">
         <a href="#platform" className="flex items-center gap-3" aria-label="Meyaar home">
-          <span className="relative size-9 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"><Image src="/branding/meyaar-logo.png" alt="Meyaar" fill sizes="36px" className="object-cover" /></span>
-          <span className="text-lg font-black tracking-[0.08em] text-blue-600">MEYAAR</span>
+          <span className="relative size-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"><Image src="/branding/meyaar-logo.png" alt="Meyaar" fill sizes="32px" className="object-cover" /></span>
+          <span className="text-base font-black tracking-[0.08em] text-blue-600">MEYAAR</span>
         </a>
-        <nav className="hidden items-center gap-9 text-sm font-semibold text-slate-600 md:flex">
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-9 whitespace-nowrap text-sm font-semibold text-slate-600 md:flex rtl:left-auto rtl:right-1/2 rtl:translate-x-1/2">
           <a href="#platform" className="transition hover:text-blue-600">{t("Platform")}</a>
           <a href="#capabilities" className="transition hover:text-blue-600">{t("How it Works")}</a>
           <a href="#about" className="transition hover:text-blue-600">{t("About")}</a>
@@ -36,7 +36,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
         <DisplayControls />
       </header>
 
-      <section id="platform" className="relative mx-auto min-h-[620px] max-w-[1280px] overflow-hidden bg-[#dfeeff] sm:h-[calc(100svh-54px)] sm:min-h-[500px]">
+      <section id="platform" className="relative mx-auto min-h-[620px] max-w-[1600px] overflow-hidden bg-[#dfeeff] sm:h-[calc(100svh-56px)] sm:min-h-[500px]">
         <Image src="/branding/riyadh-smart-city-hero.png" alt={language === "ar" ? "مشهد مدينة الرياض الذكية" : "Riyadh smart city skyline"} fill priority sizes="(max-width: 1280px) 100vw, 1280px" unoptimized className="meyaar-hero-image object-cover object-center" />
         <div className="meyaar-hero-overlay absolute inset-0 bg-[linear-gradient(90deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)] rtl:bg-[linear-gradient(270deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)]" />
 
