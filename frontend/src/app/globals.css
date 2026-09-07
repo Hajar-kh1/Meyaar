@@ -63,6 +63,40 @@ textarea:focus-visible {
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #bfd0d6; border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; }
 
+/* Dark mode remaps the shared surface utilities used throughout the dashboard. */
+.dark {
+  --background: #0f2028;
+  --foreground: #e8f0f2;
+  color-scheme: dark;
+}
+
+.dark body,
+.dark .bg-background { background-color: #0f2028; color: #e8f0f2; }
+.dark .bg-white,
+.dark .bg-white\/95,
+.dark .bg-white\/90,
+.dark .bg-white\/85 { background-color: rgb(24 51 62 / .96); }
+.dark .bg-slate-50 { background-color: #17313c; }
+.dark .bg-slate-100 { background-color: #1d3a46; }
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-\[\#071c33\] { color: #edf4f5; }
+.dark .text-slate-700,
+.dark .text-slate-600 { color: #bfd0d6; }
+.dark .text-slate-500,
+.dark .text-slate-400 { color: #91a9b2; }
+.dark .border-slate-300,
+.dark .border-slate-200,
+.dark .border-slate-200\/80 { border-color: #31515e; }
+.dark input,
+.dark select,
+.dark textarea { color: #edf4f5; }
+.dark input::placeholder,
+.dark textarea::placeholder { color: #829aa3; }
+.dark .meyaar-hero-overlay { background: linear-gradient(90deg, rgb(15 32 40 / .98) 0%, rgb(20 48 59 / .9) 34%, rgb(24 57 69 / .5) 58%, rgb(10 28 36 / .08) 78%); }
+.dark[dir="rtl"] .meyaar-hero-overlay { background: linear-gradient(270deg, rgb(15 32 40 / .98) 0%, rgb(20 48 59 / .9) 34%, rgb(24 57 69 / .5) 58%, rgb(10 28 36 / .08) 78%); }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }

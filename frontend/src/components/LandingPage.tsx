@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useLanguage } from "@/components/LanguageProvider";
+import DisplayControls from "@/components/DisplayControls";
 
 type LandingPageProps = { onStart: () => void };
 
@@ -18,10 +19,10 @@ function CapabilityIcon({ type }: { type: string }) {
 }
 
 export default function LandingPage({ onStart }: LandingPageProps) {
-  const { language, toggleLanguage, t } = useLanguage();
+  const { language, t } = useLanguage();
 
   return (
-    <main className="min-h-screen bg-[#f4f9ff] text-[#071c33]">
+    <main className="min-h-screen bg-background text-[#071c33]">
       <header className="mx-auto flex h-[54px] max-w-[1280px] items-center justify-between gap-6 px-6 sm:px-10 lg:px-16 xl:px-20">
         <a href="#platform" className="flex items-center gap-3" aria-label="Meyaar home">
           <span className="relative size-9 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"><Image src="/branding/meyaar-logo.png" alt="Meyaar" fill sizes="36px" className="object-cover" /></span>
@@ -32,12 +33,12 @@ export default function LandingPage({ onStart }: LandingPageProps) {
           <a href="#capabilities" className="transition hover:text-blue-600">{t("How it Works")}</a>
           <a href="#about" className="transition hover:text-blue-600">{t("About")}</a>
         </nav>
-        <button type="button" onClick={toggleLanguage} className="rounded-lg border border-slate-200 bg-white/90 px-4 py-2 text-xs font-bold text-[#071c33] shadow-sm transition hover:border-blue-200 hover:text-blue-600">{language === "en" ? "العربية" : "English"}</button>
+        <DisplayControls />
       </header>
 
       <section id="platform" className="relative mx-auto h-[calc(100vh-54px)] min-h-[500px] max-h-[586px] max-w-[1280px] overflow-hidden bg-[#dfeeff]">
         <Image src={language === "ar" ? "/branding/riyadh-hero-rtl-hq.png" : "/branding/riyadh-hero-en-premium.png"} alt="Riyadh skyline" fill priority sizes="100vw" unoptimized className="object-cover object-center" />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)] rtl:bg-[linear-gradient(270deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)]" />
+        <div className="meyaar-hero-overlay absolute inset-0 bg-[linear-gradient(90deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)] rtl:bg-[linear-gradient(270deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)]" />
 
         <div className="relative z-10 grid h-full items-center px-7 pb-20 pt-5 sm:px-12 lg:px-16 xl:px-20">
           <div id="about" className="max-w-[520px] py-3">
