@@ -36,11 +36,11 @@ export default function LandingPage({ onStart }: LandingPageProps) {
         <DisplayControls />
       </header>
 
-      <section id="platform" className="relative mx-auto min-h-[calc(100vh-54px)] max-w-[1920px] overflow-hidden bg-[#dcebf1] sm:min-h-[560px]">
-        <Image src="/branding/riyadh-smart-city-hero-hq.png" alt={language === "ar" ? "مشهد مدينة الرياض الذكية" : "Riyadh smart city skyline"} fill priority sizes="100vw" quality={100} unoptimized className="meyaar-hero-image object-contain object-right rtl:object-left" />
+      <section id="platform" className="relative mx-auto min-h-[calc(100svh-54px)] max-w-[1280px] overflow-hidden bg-[#dfeeff] sm:min-h-[620px]">
+        <Image src="/branding/riyadh-smart-city-hero.png" alt={language === "ar" ? "مشهد مدينة الرياض الذكية" : "Riyadh smart city skyline"} fill priority sizes="(max-width: 1280px) 100vw, 1280px" unoptimized className="meyaar-hero-image object-cover object-center" />
         <div className="meyaar-hero-overlay absolute inset-0 bg-[linear-gradient(90deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)] rtl:bg-[linear-gradient(270deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)]" />
 
-        <div className="relative z-10 grid min-h-[calc(100vh-54px)] items-center px-7 pb-40 pt-8 sm:min-h-[560px] sm:px-12 sm:pb-28 lg:px-16 xl:px-20">
+        <div className="relative z-10 grid min-h-[calc(100svh-54px)] items-center px-7 pb-44 pt-8 sm:min-h-[620px] sm:px-12 sm:pb-32 lg:px-16 xl:px-20">
           <div id="about" className="max-w-[520px] py-3">
             <div className="mb-4 flex items-center gap-3 text-[9px] font-extrabold uppercase tracking-[0.28em] text-[#31577f]"><span>{t("Geospatial AI Platform")}</span><span className="h-px w-10 bg-blue-500/60" /></div>
             <h1 className="text-[2.15rem] font-black leading-[1.05] tracking-[-0.04em] sm:text-[2.35rem] xl:text-[2.5rem]">
@@ -54,7 +54,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
           </div>
         </div>
 
-        <div id="capabilities" className="absolute inset-x-5 bottom-5 z-20 grid grid-cols-3 gap-1 rounded-2xl border border-white/15 bg-white/10 p-2 backdrop-blur-sm sm:inset-x-auto sm:left-12 sm:w-[560px] lg:left-16 xl:left-20 rtl:sm:left-auto rtl:sm:right-12 rtl:lg:right-16 rtl:xl:right-20">
+        <div id="capabilities" className="absolute inset-x-5 bottom-5 z-20 grid grid-cols-1 gap-1 rounded-2xl border border-white/30 bg-white/75 p-2 shadow-lg backdrop-blur-md sm:left-12 sm:right-auto sm:w-[600px] sm:grid-cols-3 lg:left-16 xl:left-20 rtl:sm:left-auto rtl:sm:right-12 rtl:lg:right-16 rtl:xl:right-20">
           {capabilities.map((item, index) => <div key={item.title} className={`flex min-h-[58px] items-center gap-2.5 px-3 py-1 ${index > 0 ? "sm:border-s sm:border-slate-400/40" : ""}`}><span className="flex size-8 shrink-0 items-center justify-center text-blue-600"><CapabilityIcon type={item.icon} /></span><div><p className="text-xs font-extrabold text-[#071c33]">{t(item.title)}</p><p className="mt-0.5 text-[10px] text-slate-600">{t(item.subtitle)}</p></div></div>)}
         </div>
       </section>
