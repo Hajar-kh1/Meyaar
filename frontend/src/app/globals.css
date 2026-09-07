@@ -98,6 +98,11 @@ html[lang="ar"] :where(h1, h2, h3, h4, h5, h6, p, a, button, label, th, td) {
   transition: transform 500ms cubic-bezier(.2, .8, .2, 1);
 }
 
+.meyaar-landing-header {
+  background: rgb(239 248 251 / .94);
+  border-color: rgb(191 219 228 / .75);
+}
+
 html[dir="rtl"] .meyaar-hero-image {
   transform: scaleX(-1);
 }
@@ -178,6 +183,10 @@ textarea:focus-visible {
 .dark .meyaar-capabilities p:first-child { color: #f2f7f8; }
 .dark .meyaar-capabilities p:last-child { color: #b7cbd2; }
 .dark .meyaar-capabilities svg { color: #72acc0; }
+.dark .meyaar-landing-header {
+  background: rgb(20 48 59 / .94);
+  border-color: rgb(98 155 176 / .3);
+}
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
