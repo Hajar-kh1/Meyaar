@@ -37,7 +37,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
       </header>
 
       <section id="platform" className="relative mx-auto min-h-[calc(100vh-54px)] max-w-[1920px] overflow-hidden bg-[#dcebf1] sm:min-h-[560px]">
-        <Image src="/branding/riyadh-smart-city-hero.png" alt={language === "ar" ? "مشهد مدينة الرياض الذكية" : "Riyadh smart city skyline"} fill priority sizes="100vw" unoptimized className="meyaar-hero-image object-contain object-right rtl:object-left" />
+        <Image src="/branding/riyadh-smart-city-hero-hq.png" alt={language === "ar" ? "مشهد مدينة الرياض الذكية" : "Riyadh smart city skyline"} fill priority sizes="100vw" quality={100} unoptimized className="meyaar-hero-image object-contain object-right rtl:object-left" />
         <div className="meyaar-hero-overlay absolute inset-0 bg-[linear-gradient(90deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)] rtl:bg-[linear-gradient(270deg,rgba(247,251,255,0.98)_0%,rgba(229,242,254,0.90)_32%,rgba(211,232,250,0.42)_52%,rgba(12,43,73,0.03)_72%)]" />
 
         <div className="relative z-10 grid min-h-[calc(100vh-54px)] items-center px-7 pb-40 pt-8 sm:min-h-[560px] sm:px-12 sm:pb-28 lg:px-16 xl:px-20">
