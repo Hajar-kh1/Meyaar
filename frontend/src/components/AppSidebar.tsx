@@ -28,7 +28,7 @@ function SidebarIcon({ name }: { name: "home" | "check" | "reports" | "settings"
 export default function AppSidebar({ activeView, onNavigate, onLogout }: AppSidebarProps) {
   const { language } = useLanguage();
   return (
-    <aside className="fixed inset-x-0 bottom-0 z-[3000] flex shrink-0 flex-col border-e border-[#e1e6e3] bg-[#fdfefc] text-[#17332f] shadow-[0_-8px_30px_rgba(7,45,38,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:w-60 lg:shadow-[2px_0_18px_rgba(18,60,53,.045)] rtl:lg:left-auto rtl:lg:right-0">
+    <aside className="fixed inset-x-0 bottom-0 z-[3000] flex shrink-0 flex-col border-e border-[#e1e6e3] bg-[#fdfefc] text-[#17332f] shadow-[0_-8px_30px_rgba(7,45,38,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[200px] lg:shadow-[2px_0_18px_rgba(18,60,53,.045)] rtl:lg:left-auto rtl:lg:right-0">
       <div className="hidden h-[120px] shrink-0 items-center justify-center border-b border-[#eef1ef] px-5 lg:flex">
         <Image src="/branding/meyaar-version-three-logo.png" alt="شعار معيار" width={92} height={92} className="size-[92px] object-contain" />
       </div>
