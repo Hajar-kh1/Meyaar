@@ -28,6 +28,13 @@ interface UploadPanelProps {
 type UploadMode = "vector" | "image";
 export interface BatchUploadItem { result: ProcessingResult; file: File; mode: UploadMode; }
 
+function detectUploadMode(file: File): UploadMode | null {
+  const name = file.name.toLowerCase();
+  if (/\.(png|jpe?g|tiff?)$/.test(name)) return "image";
+  if (/\.(geojson|json|gpkg|csv|parquet|zip)$/.test(name) && !/\.(png|jpe?g|tiff?|webp)\.json$/.test(name)) return "vector";
+  return null;
+}
+
 async function splitMixedGeoJson(files: File[]): Promise<File[]> {
   const expanded: File[] = [];
   for (const file of files) {
@@ -52,9 +59,6 @@ export default function UploadPanel({
   onResult,
 }: UploadPanelProps) {
   const { t } = useLanguage();
-  const [mode, setMode] =
-    useState<UploadMode>("vector");
-
   const [files, setFiles] = useState<File[]>([]);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState(0);
@@ -79,10 +83,7 @@ export default function UploadPanel({
   useEffect(() => { folderInputRef.current?.setAttribute("webkitdirectory", ""); }, []);
 
 
-  const acceptedFormats =
-    mode === "vector"
-      ? ".geojson,.json,.gpkg,.csv,.parquet,.zip"
-      : ".png,.jpg,.jpeg,.tif,.tiff";
+  const acceptedFormats = ".geojson,.json,.gpkg,.csv,.parquet,.zip,.png,.jpg,.jpeg,.tif,.tiff";
 
 
   async function handleSubmit(
@@ -95,10 +96,9 @@ export default function UploadPanel({
       return;
     }
 
-    const sizeLimit = mode === "vector" ? 500 * 1024 * 1024 : 100 * 1024 * 1024;
-    const oversized = files.find((item) => item.size > sizeLimit);
+    const oversized = files.find((item) => item.size > (detectUploadMode(item) === "vector" ? 500 : 100) * 1024 * 1024);
     if (oversized) {
-      setError(`${oversized.name} exceeds the ${mode === "vector" ? 500 : 100} MB limit.`);
+      setError(`${oversized.name} exceeds the ${detectUploadMode(oversized) === "vector" ? 500 : 100} MB limit.`);
       return;
     }
 
@@ -109,12 +109,14 @@ export default function UploadPanel({
     setError(null);
 
     try {
-      const workingFiles = mode === "vector" ? await splitMixedGeoJson(files) : files;
+      const workingFiles = await splitMixedGeoJson(files);
       if (workingFiles.length !== files.length) setFiles(workingFiles);
       let finalResult: ProcessingResult | null = null;
       const completed: BatchUploadItem[] = [];
       for (let index = 0; index < workingFiles.length; index += 1) {
         const selectedFile = workingFiles[index];
+        const mode = detectUploadMode(selectedFile);
+        if (!mode) throw new Error(`${selectedFile.name} is not a supported vector or image file.`);
         setCurrentFile(index);
         const updateProgress = (filePercent: number) => setProgress(Math.round(((index + filePercent / 100) / workingFiles.length) * 100));
         finalResult = mode === "vector"
@@ -122,7 +124,9 @@ export default function UploadPanel({
           : await analyzeMapImage(selectedFile, updateProgress);
         completed.push({ result: finalResult, file: selectedFile, mode });
       }
-      if (finalResult) onResult(finalResult, workingFiles[workingFiles.length - 1], mode, completed);
+      const finalFile = workingFiles[workingFiles.length - 1];
+      const finalMode = detectUploadMode(finalFile);
+      if (finalResult && finalMode) onResult(finalResult, finalFile, finalMode, completed);
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -133,15 +137,6 @@ export default function UploadPanel({
       setIsLoading(false);
     }
   }
-
-
-  function changeMode(nextMode: UploadMode) {
-    setMode(nextMode);
-    setFiles([]);
-    setProgress(0);
-    setError(null);
-  }
-
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -157,32 +152,6 @@ export default function UploadPanel({
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {t("Upload vector data for PostGIS validation or a map image for visual element analysis.")}
         </p>
-      </div>
-
-      <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
-        <button
-          type="button"
-          onClick={() => changeMode("vector")}
-          className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
-            mode === "vector"
-              ? "bg-white text-blue-700 shadow-sm"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          {t("Vector data")}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => changeMode("image")}
-          className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
-            mode === "image"
-              ? "bg-white text-blue-700 shadow-sm"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          {t("Map image")}
-        </button>
       </div>
 
       <form
@@ -210,9 +179,7 @@ export default function UploadPanel({
             </span>
 
             <span className="mt-1 text-xs text-slate-500">
-              {mode === "vector"
-                ? "GeoJSON, GeoPackage, CSV, GeoParquet, or zipped Shapefile"
-                : "PNG, JPG, JPEG, TIFF, or TIF"}
+              GeoJSON, GeoPackage, CSV, GeoParquet, zipped Shapefile, PNG, JPG, or TIFF
             </span>
 
             {files.length > 0 && (
@@ -233,7 +200,7 @@ export default function UploadPanel({
             className="sr-only"
           />
           <div className="mt-2 flex items-center justify-center gap-2"><span className="text-[11px] text-slate-400">or</span><label htmlFor="dataset-folder" className="cursor-pointer rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100">Choose a folder</label></div>
-          <input ref={folderInputRef} id="dataset-folder" type="file" multiple accept={acceptedFormats} onChange={(event) => { const supported = Array.from(event.target.files ?? []).filter((item) => acceptedFormats.split(",").some((extension) => item.name.toLowerCase().endsWith(extension)) && !(mode === "vector" && /\.(png|jpe?g|tiff?|webp)\.json$/i.test(item.name))); setFiles(supported); setError(supported.length ? null : "The folder does not contain supported files for this analysis type."); }} className="sr-only" />
+          <input ref={folderInputRef} id="dataset-folder" type="file" multiple accept={acceptedFormats} onChange={(event) => { const supported = Array.from(event.target.files ?? []).filter((item) => detectUploadMode(item)); setFiles(supported); setError(supported.length ? null : "The folder does not contain supported vector or image files."); }} className="sr-only" />
         </div>
 
         {error && (
