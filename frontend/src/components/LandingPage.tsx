@@ -25,7 +25,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
     <main className="relative min-h-screen overflow-hidden bg-background text-[#071c33]">
       <header className="meyaar-landing-header absolute inset-x-0 top-2 z-30 mx-auto flex h-14 w-[calc(100%-1rem)] items-center justify-between gap-5 rounded-2xl border border-slate-200/70 px-5 shadow-[0_10px_30px_rgba(15,23,42,.07)] backdrop-blur-xl sm:w-[85%] sm:px-8 lg:px-10">
         <a href="#platform" className="flex items-center gap-3" aria-label="Meyaar home">
-          <span className="relative size-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"><Image src="/branding/meyaar-project-icon.webp" alt="Meyaar project icon" fill sizes="32px" className="object-contain p-0.5" /></span>
+          <span className="relative size-10 overflow-hidden rounded-lg bg-white"><Image src="/branding/meyaar-version-three-logo.png" alt="شعار معيار" fill sizes="40px" className="object-contain" /></span>
           <span className="text-base font-black tracking-[0.08em] text-blue-600">MEYAAR</span>
         </a>
         <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-9 whitespace-nowrap text-sm font-semibold text-slate-600 md:flex rtl:left-auto rtl:right-1/2 rtl:translate-x-1/2">
