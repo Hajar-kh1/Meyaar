@@ -24,34 +24,34 @@ export default function VisionPreview({ result, imageUrl }: VisionPreviewProps) 
     source.src = imageUrl;
     await new Promise<void>((resolve, reject) => { source.onload = () => resolve(); source.onerror = () => reject(new Error("Could not load the map image.")); });
     const canvas = document.createElement("canvas");
+    const headerHeight = title.trim() ? Math.max(70, Math.round(source.naturalHeight * 0.1)) : 0;
     canvas.width = source.naturalWidth;
-    canvas.height = source.naturalHeight;
+    canvas.height = source.naturalHeight + headerHeight;
     const context = canvas.getContext("2d");
     if (!context) return;
-    context.drawImage(source, 0, 0);
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(source, 0, headerHeight);
     const fontSize = Math.max(22, Math.round(canvas.width * 0.038));
     context.font = `700 ${fontSize}px Arial, sans-serif`;
     context.textBaseline = "top";
     const padding = Math.round(fontSize * 0.65);
     const measured = context.measureText(title.trim()).width;
     const x = placement === "left" ? padding : placement === "right" ? canvas.width - measured - padding : (canvas.width - measured) / 2;
-    context.fillStyle = "rgba(255,255,255,0.9)";
-    context.fillRect(x - padding / 2, padding / 2, measured + padding, fontSize + padding);
-    context.fillStyle = "#071c33";
-    context.fillText(title.trim(), x, padding);
+    if (title.trim()) { context.fillStyle = "#071c33"; context.fillText(title.trim(), x, Math.max(padding, (headerHeight - fontSize) / 2)); }
     const box = Math.max(14, Math.round(canvas.width * 0.018));
     if (showLegend) {
-      const lx = canvas.width - Math.round(canvas.width * 0.22), ly = Math.round(canvas.height * 0.56);
+      const lx = canvas.width - Math.round(canvas.width * 0.22), ly = headerHeight + Math.round(source.naturalHeight * 0.56);
       context.fillStyle = "rgba(255,255,255,0.92)"; context.fillRect(lx, ly, Math.round(canvas.width * 0.18), box * 6);
       context.fillStyle = "#071c33"; context.font = `700 ${box}px Arial, sans-serif`; context.fillText(copy.legend, lx + box, ly + box);
       ["#1d4ed8", "#22c55e", "#f59e0b"].forEach((color, index) => { context.fillStyle = color; context.fillRect(lx + box, ly + box * (index + 2), box, box * 0.65); });
     }
     if (showScale) {
-      const sx = Math.round(canvas.width * 0.06), sy = canvas.height - Math.round(canvas.height * 0.08), width = Math.round(canvas.width * 0.18);
+      const sx = Math.round(canvas.width * 0.06), sy = headerHeight + source.naturalHeight - Math.round(source.naturalHeight * 0.08), width = Math.round(canvas.width * 0.18);
       context.strokeStyle = "#071c33"; context.lineWidth = Math.max(2, Math.round(canvas.width * 0.003)); context.beginPath(); context.moveTo(sx, sy); context.lineTo(sx + width, sy); context.moveTo(sx, sy - box / 2); context.lineTo(sx, sy + box / 2); context.moveTo(sx + width, sy - box / 2); context.lineTo(sx + width, sy + box / 2); context.stroke(); context.fillStyle = "#071c33"; context.font = `700 ${box}px Arial, sans-serif`; context.fillText("0                 100 m", sx, sy + box * 1.4);
     }
     if (showNorthArrow) {
-      const nx = Math.round(canvas.width * 0.08), ny = Math.round(canvas.height * 0.15), size = Math.round(canvas.width * 0.035);
+      const nx = Math.round(canvas.width * 0.08), ny = headerHeight + Math.round(source.naturalHeight * 0.15), size = Math.round(canvas.width * 0.035);
       context.fillStyle = "rgba(255,255,255,0.88)"; context.fillRect(nx - size, ny - size * 1.5, size * 2, size * 3.3); context.fillStyle = "#071c33"; context.font = `700 ${box}px Arial, sans-serif`; context.fillText("N", nx - box / 2, ny - size); context.beginPath(); context.moveTo(nx, ny - size * 0.45); context.lineTo(nx - size * 0.45, ny + size * 0.85); context.lineTo(nx, ny + size * 0.48); context.lineTo(nx + size * 0.45, ny + size * 0.85); context.closePath(); context.fill();
     }
     const link = document.createElement("a");
@@ -62,7 +62,7 @@ export default function VisionPreview({ result, imageUrl }: VisionPreviewProps) 
   return (
     <section className="grid overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:grid-cols-2">
       <div className="flex min-h-80 items-center justify-center bg-slate-100 p-5">
-        {imageUrl ? <div className="relative max-w-full"><Image src={imageUrl} alt={`Uploaded map ${result.filename}`} width={1200} height={800} unoptimized className="max-h-[520px] h-auto max-w-full rounded-xl object-contain shadow" />{title.trim() && <div className={`absolute top-4 max-w-[calc(100%-2rem)] rounded-md bg-white/90 px-3 py-1.5 text-center text-sm font-extrabold text-[#071c33] shadow-sm sm:text-base ${placement === "left" ? "left-4" : placement === "right" ? "right-4" : "left-1/2 -translate-x-1/2"}`}>{title}</div>}{showLegend && <div className="absolute right-[7%] top-[56%] rounded bg-white/90 p-2 text-[9px] text-[#071c33] shadow"><b>{copy.legend}</b><span className="mt-1 block text-blue-700">■ Area 1</span><span className="block text-emerald-600">■ Area 2</span><span className="block text-amber-500">■ Area 3</span></div>}{showScale && <div className="absolute bottom-[8%] left-[6%] rounded bg-white/90 px-2 py-1 text-[9px] font-bold text-[#071c33] shadow"><span className="inline-block w-20 border-b-2 border-[#071c33]"/><br/>0　　　 100 m</div>}{showNorthArrow && <div className="absolute left-[8%] top-[10%] rounded bg-white/90 px-2 py-1 text-center text-sm font-black text-[#071c33] shadow">N<br/>▲</div>}</div> : <p className="text-sm text-slate-500">Image preview unavailable.</p>}
+        {imageUrl ? <div className="relative max-w-full overflow-hidden rounded-xl shadow">{title.trim() && <div className={`flex h-14 items-center bg-white px-5 text-sm font-extrabold text-[#071c33] sm:text-base ${placement === "left" ? "justify-start" : placement === "right" ? "justify-end" : "justify-center"}`}>{title}</div>}<Image src={imageUrl} alt={`Uploaded map ${result.filename}`} width={1200} height={800} unoptimized className="max-h-[520px] h-auto max-w-full object-contain" />{showLegend && <div className="absolute right-[7%] top-[56%] rounded bg-white/90 p-2 text-[9px] text-[#071c33] shadow"><b>{copy.legend}</b><span className="mt-1 block text-blue-700">■ Area 1</span><span className="block text-emerald-600">■ Area 2</span><span className="block text-amber-500">■ Area 3</span></div>}{showScale && <div className="absolute bottom-[8%] left-[6%] rounded bg-white/90 px-2 py-1 text-[9px] font-bold text-[#071c33] shadow"><span className="inline-block w-20 border-b-2 border-[#071c33]"/><br/>0　　　 100 m</div>}{showNorthArrow && <div className={`absolute left-[8%] rounded bg-white/90 px-2 py-1 text-center text-sm font-black text-[#071c33] shadow ${title.trim() ? "top-[18%]" : "top-[10%]"}`}>N<br/>▲</div>}</div> : <p className="text-sm text-slate-500">Image preview unavailable.</p>}
       </div>
       <div className="p-6">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">{t("Vision analysis")}</p>
