@@ -1,4 +1,4 @@
-from src.vision.map_element_suggestions import suggest_missing_map_element
+from agent.map_elements.service import suggest_missing_map_element
 
 
 def test_title_suggestion_is_readable_and_deterministic():

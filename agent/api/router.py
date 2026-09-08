@@ -22,7 +22,9 @@ from agent.core.models import (
 )
 from agent.db.base import Repository
 from agent.graph.builder import build_summary_model, run_analysis
+from agent.map_elements.service import suggest_missing_map_element
 from src.api.auth import current_user, database_engine, ensure_app_tables, require_run_access
+from src.api.schemas import MapElementSuggestionRequest, MapElementSuggestionResponse
 
 router = APIRouter(tags=["validation-analysis"])
 
@@ -41,6 +43,14 @@ def get_repository() -> Repository:
     """FastAPI dependency: production repository (override in tests)."""
     from agent.db.postgres import PostgresRepository
     return PostgresRepository()
+
+
+@router.post("/map-elements/suggest", response_model=MapElementSuggestionResponse,
+             summary="Suggest a missing map element without editing the image")
+def suggest_map_element(body: MapElementSuggestionRequest,
+                        user: dict = Depends(current_user)):
+    """Agent-owned, preview-only cartographic suggestion endpoint."""
+    return suggest_missing_map_element(body.filename, body.element)
 
 
 @router.post("/validation/{run_id}/analyze",
