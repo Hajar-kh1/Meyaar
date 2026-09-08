@@ -189,8 +189,6 @@ export default function UploadPanel({
         onSubmit={handleSubmit}
         className="space-y-5"
       >
-        {mode === "vector" && <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2"><span className="text-xs text-blue-600">✦</span><div><p className="text-xs font-bold text-blue-900">Automatic layer detection</p><p className="text-[11px] leading-4 text-blue-700">MEYAAR identifies roads and buildings from geometry.</p></div></div>}
-
         <div>
           <label
             htmlFor="dataset-file"
