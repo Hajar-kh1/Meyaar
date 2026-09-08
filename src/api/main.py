@@ -428,7 +428,7 @@ def _interpret_team_command_batch(instruction: str) -> dict:
     """Turn one natural-language request into an ordered, reviewable action plan."""
     llm = get_llm()
     if llm is not None:
-        prompt = """Convert this Arabic or English team-management request into strict JSON only: {"summary":"short summary","actions":[...]}. Each action must use action add, remove, create_team, delete_team, change_role, list_members, or team_summary and include name, email, team_name, role, suggested_username. Keep the user's order. Adding a user requires their personal email. Never execute or invent missing emails. Request: """ + instruction
+        prompt = """Convert this Arabic or English team-management request into strict JSON only: {"summary":"short summary","actions":[...]}. Each action must use action add, remove, create_team, delete_team, change_role, list_members, or team_summary and include name, email, team_name, role, suggested_username. Keep the user's order. Adding a user requires their personal email. Never invent details: use null for every name, email, team name, or username the user did not explicitly provide. Never use placeholder values such as 'New Member Name' or 'newmember@example.com'. Request: """ + instruction
         try:
             parsed = json.loads(_strip_json_fence(str(llm.invoke(prompt).content)))
             actions = parsed.get("actions") if isinstance(parsed, dict) else None
