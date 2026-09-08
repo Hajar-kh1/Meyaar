@@ -59,6 +59,7 @@ class VectorProcessingResponse(BaseModel):
             "features": [],
         }
     )
+    fixed_layer_geojson: dict[str, Any] | None = None
     analysis_id: str | None = None
 
 

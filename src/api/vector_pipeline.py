@@ -55,6 +55,35 @@ def _build_layer_geojson(gdf) -> dict:
     )
 
 
+def _build_stored_layer_geojson(engine, layer_name: str) -> dict:
+    """Export the isolated working copy after policy-approved repairs.
+
+    The browser receives this as a new downloadable GeoJSON file; the source
+    file that the user uploaded is never overwritten.
+    """
+    query = text(
+        f"""SELECT feature_id::text AS feature_id,
+                   ST_AsGeoJSON(CASE
+                       WHEN ST_SRID(geometry) = 4326 THEN geometry
+                       WHEN ST_SRID(geometry) = 0 THEN ST_SetSRID(geometry, 4326)
+                       ELSE ST_Transform(geometry, 4326)
+                   END)::json AS geometry
+            FROM public.{layer_name}
+            WHERE geometry IS NOT NULL
+            ORDER BY feature_id"""
+    )
+    with engine.connect() as connection:
+        rows = connection.execute(query).mappings().all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {"type": "Feature", "properties": {"feature_id": row["feature_id"]},
+             "geometry": row["geometry"]}
+            for row in rows
+        ],
+    }
+
+
 def _attach_error_geometries(
     engine,
     layer_name: str,
@@ -317,6 +346,7 @@ def process_vector_upload(
         run_id = validation["run_id"]
 
         analysis = run_analysis(run_id)
+        fixed_layer_geojson = _build_stored_layer_geojson(engine, layer_name)
 
         return {
             "filename": filename,
@@ -328,4 +358,5 @@ def process_vector_upload(
             "analysis": analysis,
             "compliance_score": compliance_score_from_summary(validation.get("summary", []), insertion.get("inserted_rows", 0)),
             "layer_geojson": layer_geojson,
+            "fixed_layer_geojson": fixed_layer_geojson,
         }

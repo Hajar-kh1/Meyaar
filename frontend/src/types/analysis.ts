@@ -135,6 +135,23 @@ export interface ErrorAnalysisResult {
   summary: AnalysisSummary;
   trace: string[];
   errors: string[];
+  remediation?: RemediationRecord[];
+}
+
+export interface RemediationRecord {
+  result_id: number;
+  layer_name: string;
+  feature_id: string | null;
+  rule_id: string;
+  action: "auto_fix" | "human_review" | "no_action";
+  remediation_type: string | null;
+  status: "applied" | "pending_review" | "failed" | "none";
+  issue: string;
+  reason: string;
+  recommended_action: string | null;
+  before_state: Record<string, unknown>;
+  after_state: Record<string, unknown>;
+  human_review_required: boolean;
 }
 
 export interface VectorProcessingResponse {
@@ -147,6 +164,7 @@ export interface VectorProcessingResponse {
   analysis: ErrorAnalysisResult;
   compliance_score: number;
   layer_geojson?: FeatureCollection;
+  fixed_layer_geojson?: FeatureCollection;
   analysis_id?: string | null;
 }
 
