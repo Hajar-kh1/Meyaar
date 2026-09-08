@@ -28,20 +28,20 @@ function SidebarIcon({ name }: { name: "home" | "check" | "reports" | "settings"
 export default function AppSidebar({ activeView, onNavigate, onLogout }: AppSidebarProps) {
   const { language } = useLanguage();
   return (
-    <aside className="fixed inset-x-0 bottom-0 z-[3000] flex shrink-0 flex-col border-e border-[#e1e6e3] bg-[#fdfefc] text-[#17332f] shadow-[0_-8px_30px_rgba(7,45,38,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:w-72 lg:shadow-[2px_0_18px_rgba(18,60,53,.045)] rtl:lg:left-auto rtl:lg:right-0">
-      <div className="hidden h-[158px] shrink-0 items-center justify-center border-b border-[#eef1ef] px-5 lg:flex">
-        <Image src="/branding/meyaar-project-icon.webp" alt="Meyaar project icon" width={86} height={86} className="size-[86px] object-contain" />
+    <aside className="fixed inset-x-0 bottom-0 z-[3000] flex shrink-0 flex-col border-e border-[#e1e6e3] bg-[#fdfefc] text-[#17332f] shadow-[0_-8px_30px_rgba(7,45,38,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:w-60 lg:shadow-[2px_0_18px_rgba(18,60,53,.045)] rtl:lg:left-auto rtl:lg:right-0">
+      <div className="hidden h-[120px] shrink-0 items-center justify-center border-b border-[#eef1ef] px-5 lg:flex">
+        <Image src="/branding/meyaar-project-icon.webp" alt="Meyaar project icon" width={68} height={68} className="size-[68px] object-contain" />
       </div>
-      <nav className="grid grid-cols-3 gap-1 p-2 lg:flex lg:flex-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:px-[30px] lg:pt-6">
+      <nav className="grid grid-cols-3 gap-1 p-2 lg:flex lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-5 lg:pt-5">
         {items.map((item) => (
-          <button key={item.view} type="button" onClick={() => onNavigate(item.view)} className={`flex min-w-0 flex-col items-center gap-1 rounded-[13px] px-1 py-2 text-[9px] font-medium transition lg:h-[76px] lg:w-full lg:flex-row lg:gap-5 lg:px-7 lg:py-0 lg:text-[18px] ${activeView === item.view ? 'bg-[#dcebe5] text-[#006b5a]' : 'text-[#465671] hover:bg-[#edf7f3] hover:text-[#075f50]'}`}>
+          <button key={item.view} type="button" onClick={() => onNavigate(item.view)} className={`flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[9px] font-medium transition lg:h-[58px] lg:w-full lg:flex-row lg:gap-4 lg:px-5 lg:py-0 lg:text-[15px] ${activeView === item.view ? 'bg-[#dcebe5] text-[#006b5a]' : 'text-[#465671] hover:bg-[#edf7f3] hover:text-[#075f50]'}`}>
             <span className="size-[20px] shrink-0 [&>svg]:size-full [&>svg]:fill-none [&>svg]:stroke-current [&>svg]:stroke-[1.65]"><SidebarIcon name={item.icon} /></span><span className="max-w-full truncate">{language === "ar" ? item.arabic : item.label}</span>
           </button>
         ))}
       </nav>
-      <div className="hidden shrink-0 border-t border-[#dfe5e1] px-[30px] py-[28px] lg:block">
-        <button type="button" onClick={() => onNavigate("profile")} className={`flex h-[62px] w-full items-center gap-5 rounded-xl px-7 text-[18px] font-medium ${activeView === "profile" ? "bg-[#dcebe5] text-[#075f50]" : "text-[#465671] hover:bg-[#edf7f3]"}`}><span className="size-[20px] [&>svg]:size-full [&>svg]:fill-none [&>svg]:stroke-current [&>svg]:stroke-[1.8]"><SidebarIcon name="settings" /></span>{language === "ar" ? "الإعدادات" : "Settings"}</button>
-        <button type="button" onClick={() => void onLogout()} className="flex h-[62px] w-full items-center gap-5 rounded-xl px-7 text-[18px] font-medium text-[#465671] hover:bg-red-50 hover:text-red-700"><span className="size-[20px] [&>svg]:size-full [&>svg]:fill-none [&>svg]:stroke-current [&>svg]:stroke-[1.8]"><SidebarIcon name="logout" /></span>{language === "ar" ? "تسجيل الخروج" : "Sign out"}</button>
+      <div className="hidden shrink-0 border-t border-[#dfe5e1] px-5 py-5 lg:block">
+        <button type="button" onClick={() => onNavigate("profile")} className={`flex h-[50px] w-full items-center gap-4 rounded-xl px-5 text-[15px] font-medium ${activeView === "profile" ? "bg-[#dcebe5] text-[#075f50]" : "text-[#465671] hover:bg-[#edf7f3]"}`}><span className="size-[18px] [&>svg]:size-full [&>svg]:fill-none [&>svg]:stroke-current [&>svg]:stroke-[1.8]"><SidebarIcon name="settings" /></span>{language === "ar" ? "الإعدادات" : "Settings"}</button>
+        <button type="button" onClick={() => void onLogout()} className="flex h-[50px] w-full items-center gap-4 rounded-xl px-5 text-[15px] font-medium text-[#465671] hover:bg-red-50 hover:text-red-700"><span className="size-[18px] [&>svg]:size-full [&>svg]:fill-none [&>svg]:stroke-current [&>svg]:stroke-[1.8]"><SidebarIcon name="logout" /></span>{language === "ar" ? "تسجيل الخروج" : "Sign out"}</button>
       </div>
     </aside>
   );

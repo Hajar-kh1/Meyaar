@@ -165,7 +165,7 @@ export default function UploadPanel({
   }
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-6">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">
           {t("New analysis")}
@@ -194,7 +194,7 @@ export default function UploadPanel({
 
           <label
             htmlFor="dataset-file"
-            className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-blue-400 hover:bg-blue-50"
+            className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-center transition hover:border-blue-400 hover:bg-blue-50"
           >
             <span className="text-2xl">↑</span>
 
