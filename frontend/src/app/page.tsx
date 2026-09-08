@@ -93,10 +93,10 @@ export default function Home() {
   }
 
   if (!entered) return <LandingPage onStart={() => setEntered(true)} />;
-  if (checkingAuth) return <main className="flex min-h-screen items-center justify-center bg-[#eef5ff] font-bold text-blue-700">Loading...</main>;
-  if (!user) return <AuthScreen onAuthenticated={setUser} />;
-  if (user.must_change_password) return <FirstLoginPassword user={user} onComplete={setUser} onCancel={() => setUser(null)} />;
-  if (!user.team_id) return <TeamOnboarding user={user} onReady={setUser} />;
+  if (checkingAuth) return <><main className="flex min-h-screen items-center justify-center bg-[#eef5ff] font-bold text-blue-700">Loading...</main><AgentChat /></>;
+  if (!user) return <><AuthScreen onAuthenticated={setUser} /><AgentChat /></>;
+  if (user.must_change_password) return <><FirstLoginPassword user={user} onComplete={setUser} onCancel={() => setUser(null)} /><AgentChat /></>;
+  if (!user.team_id) return <><TeamOnboarding user={user} onReady={setUser} /><AgentChat /></>;
   const heading = viewTitles[view];
 
   const filters = vectorResult && <FilterBar result={vectorResult} search={search} severity={severity} errorType={errorType} onSearchChange={setSearch} onSeverityChange={setSeverity} onErrorTypeChange={setErrorType} onClear={() => { setSearch(""); setSeverity("all"); setErrorType("all"); }} />;
@@ -121,7 +121,7 @@ export default function Home() {
           {view === "assistant" && (vectorResult ? <AgentChat runId={vectorResult.run_id} embedded /> : result ? <section className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center"><h2 className="text-xl font-bold text-amber-950">Assistant requires a vector run</h2><p className="mt-2 text-sm text-amber-800">Upload vector data so the assistant can answer from stored validation results.</p></section> : null)}
         </main>
       </div>
-      {vectorResult && view !== "assistant" && <AgentChat runId={vectorResult.run_id} />}
+      {view !== "assistant" && <AgentChat runId={vectorResult?.run_id} />}
     </div>
   );
 }
