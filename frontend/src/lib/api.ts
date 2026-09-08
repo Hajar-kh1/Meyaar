@@ -18,6 +18,8 @@ import type {
   CreatedTeamUser,
   TeamCommandPlan,
   UserDirectoryEntry,
+  MapElementSuggestion,
+  MissingMapElement,
 } from "@/types/analysis";
 
 
@@ -102,6 +104,11 @@ export async function processVectorFile(
   }
 
   return uploadWithProgress<VectorProcessingResponse>(`${API_BASE_URL}/vectors/process`, formData, onProgress);
+}
+
+// Requests a preview-only suggestion; the agent never edits the uploaded image.
+export async function suggestMapElement(filename: string, element: MissingMapElement): Promise<MapElementSuggestion> {
+  return parseResponse<MapElementSuggestion>(await fetch(`${API_BASE_URL}/api/map-elements/suggest`, { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify({ filename, element }) }));
 }
 
 // XMLHttpRequest exposes upload progress events that fetch does not currently provide.

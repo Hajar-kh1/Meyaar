@@ -40,6 +40,13 @@ export interface VisionAnalysisResponse {
   analysis_id?: string | null;
 }
 
+export type MissingMapElement = "title" | "legend" | "scale" | "north_arrow";
+export interface MapElementSuggestion {
+  element: MissingMapElement;
+  suggestion: { title?: string; legend_items?: string[]; scale_label?: string; north_arrow?: string };
+  reason: string;
+}
+
 export interface GeoTiffMetadata {
   available: boolean;
   crs?: string | null;
