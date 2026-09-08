@@ -41,6 +41,26 @@ class VisionAnalysisResponse(BaseModel):
     analysis_id: str | None = None
 
 
+class MapElementSuggestionRequest(BaseModel):
+    """A user-requested preview; this request never edits an uploaded image."""
+
+    filename: str = Field(min_length=1, max_length=500)
+    element: Literal["title", "legend", "scale", "north_arrow"]
+
+
+class MapElementSuggestion(BaseModel):
+    title: str | None = None
+    legend_items: list[str] | None = None
+    scale_label: str | None = None
+    north_arrow: str | None = None
+
+
+class MapElementSuggestionResponse(BaseModel):
+    element: Literal["title", "legend", "scale", "north_arrow"]
+    suggestion: MapElementSuggestion
+    reason: str
+
+
 class VectorProcessingResponse(BaseModel):
     filename: str
     status: Literal["completed"]

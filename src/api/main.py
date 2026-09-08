@@ -28,6 +28,8 @@ load_dotenv()
 
 from src.api.schemas import (
     ImageInspectionResponse,
+    MapElementSuggestionRequest,
+    MapElementSuggestionResponse,
     VectorProcessingResponse,
     VisionAnalysisResponse,
     ErrorReviewResponse,
@@ -51,6 +53,7 @@ from src.api.schemas import (
 from src.api.auth import database_engine, ensure_app_tables, hash_password, verify_password, create_session, token_hash, current_user, save_analysis, new_invite_code, require_run_access
 
 from src.vision.image_loader import InvalidImageError, inspect_image
+from src.vision.map_element_suggestions import suggest_missing_map_element
 
 from src.vision.vision_model import (
     VisionModelNotConfiguredError,
@@ -793,6 +796,19 @@ async def inspect_uploaded_image(file: UploadFile = File(...)):
         size_bytes=len(content),
         **metadata,
     )
+
+
+@app.post("/api/map-elements/suggest", response_model=MapElementSuggestionResponse)
+def suggest_map_element(
+    body: MapElementSuggestionRequest,
+    user: dict = Depends(current_user),
+):
+    """Provide an editable cartographic-element suggestion without mutating files.
+
+    The authenticated user receives a deterministic preview only.  Rendering,
+    acceptance, and any later export remain explicit client-side actions.
+    """
+    return suggest_missing_map_element(body.filename, body.element)
 
 
 
