@@ -8,32 +8,33 @@ export type AppView = "dashboard" | "team" | "profile" | "upload" | "analysis" |
 interface AppSidebarProps {
   activeView: AppView;
   onNavigate: (view: AppView) => void;
+  onLogout: () => void | Promise<void>;
 }
 
-const items: Array<{ view: AppView; label: string; icon: string }> = [
-  { view: "dashboard", label: "Dashboard", icon: "⌂" },
-  { view: "upload", label: "Upload Data", icon: "⇧" },
-  { view: "analysis", label: "Analysis", icon: "▥" },
-  { view: "reports", label: "Reports", icon: "▤" },
-  { view: "history", label: "Saved Analyses", icon: "◷" },
+const items: Array<{ view: AppView; label: string; arabic: string; icon: string }> = [
+  { view: "dashboard", label: "Home", arabic: "الرئيسية", icon: "⌂" },
+  { view: "upload", label: "New check", arabic: "فحص جديد", icon: "▱" },
+  { view: "reports", label: "Reports", arabic: "التقارير", icon: "▣" },
 ];
 
-export default function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
-  const { t } = useLanguage();
+export default function AppSidebar({ activeView, onNavigate, onLogout }: AppSidebarProps) {
+  const { language } = useLanguage();
   return (
-    <aside className="fixed inset-x-0 bottom-0 z-[3000] flex shrink-0 flex-col bg-[#123c35] text-white shadow-[0_-8px_30px_rgba(7,45,38,.16)] lg:inset-y-0 lg:left-0 lg:right-auto lg:w-56 lg:shadow-2xl lg:shadow-slate-950/10 rtl:lg:left-auto rtl:lg:right-0">
-      <div className="hidden h-[72px] items-center gap-3 border-b border-white/10 px-5 lg:flex">
-        <Image src="/branding/meyaar-project-icon.webp" alt="Meyaar project icon" width={38} height={38} className="size-9 rounded-lg bg-white object-contain p-0.5 shadow-md ring-1 ring-white/20" />
-        <p className="text-lg font-black tracking-[0.08em] text-white">MEYAAR</p>
+    <aside className="fixed inset-x-0 bottom-0 z-[3000] flex shrink-0 flex-col border-e border-[#e2e8e4] bg-[#fbfcf9] text-[#17332f] shadow-[0_-8px_30px_rgba(7,45,38,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:w-56 lg:shadow-[2px_0_16px_rgba(18,60,53,.05)] rtl:lg:left-auto rtl:lg:right-0">
+      <div className="hidden h-[104px] items-center justify-center border-b border-slate-100 px-5 lg:flex">
+        <Image src="/branding/meyaar-project-icon.webp" alt="Meyaar project icon" width={62} height={62} className="size-16 object-contain" />
       </div>
-      <nav className="grid grid-cols-5 gap-1 p-2 lg:flex lg:flex-1 lg:flex-col lg:gap-2 lg:overflow-visible lg:p-4 lg:pt-5">
+      <nav className="grid grid-cols-3 gap-1 p-2 lg:flex lg:flex-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:p-4 lg:pt-4">
         {items.map((item) => (
-          <button key={item.view} type="button" onClick={() => onNavigate(item.view)} className={`flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[9px] font-semibold transition lg:w-full lg:flex-row lg:gap-2.5 lg:px-3.5 lg:py-3 lg:text-[13px] ${activeView === item.view ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/20' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}>
-            <span className="w-5 text-center text-base">{item.icon}</span><span className="max-w-full truncate">{t(item.label)}</span>
+          <button key={item.view} type="button" onClick={() => onNavigate(item.view)} className={`flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[9px] font-semibold transition lg:w-full lg:flex-row lg:gap-2.5 lg:px-3.5 lg:py-3 lg:text-[13px] ${activeView === item.view ? 'bg-[#dcebe5] text-[#075f50]' : 'text-slate-600 hover:bg-[#edf7f3] hover:text-[#075f50]'}`}>
+            <span className="w-5 text-center text-base">{item.icon}</span><span className="max-w-full truncate">{language === "ar" ? item.arabic : item.label}</span>
           </button>
         ))}
       </nav>
-      <div className="hidden border-t border-white/10 p-4 text-[11px] text-slate-400 lg:block">Saudi geospatial quality platform</div>
+      <div className="hidden border-t border-slate-200 p-4 lg:block">
+        <button type="button" onClick={() => onNavigate("profile")} className={`flex w-full items-center gap-2.5 rounded-lg px-3.5 py-3 text-[13px] font-semibold ${activeView === "profile" ? "bg-[#dcebe5] text-[#075f50]" : "text-slate-600 hover:bg-[#edf7f3]"}`}><span className="w-5 text-center">⚙</span>{language === "ar" ? "الإعدادات" : "Settings"}</button>
+        <button type="button" onClick={() => void onLogout()} className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3.5 py-3 text-[13px] font-semibold text-slate-600 hover:bg-red-50 hover:text-red-700"><span className="w-5 text-center">⇥</span>{language === "ar" ? "تسجيل الخروج" : "Sign out"}</button>
+      </div>
     </aside>
   );
 }
