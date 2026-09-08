@@ -49,7 +49,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
             </h1>
             <p className="mt-4 max-w-[460px] text-[13px] leading-[1.55] text-slate-600">{t("Detect spatial changes, validate map accuracy, identify inconsistencies, and generate AI-powered recommendations across satellite, aerial, and vector data.")}</p>
             <div className="mt-5 flex flex-wrap gap-2.5">
-              <button type="button" onClick={onStart} className="rounded-lg bg-blue-600 px-4 py-2.5 text-[11px] font-extrabold text-white shadow-[0_8px_20px_rgba(37,99,235,.24)] transition hover:-translate-y-0.5 hover:bg-blue-700"><span>{t("Start Validation")}</span> <span className="inline-block rtl:rotate-180" aria-hidden="true">→</span></button>
+              <button type="button" onClick={onStart} className="rounded-lg bg-blue-600 px-4 py-2.5 text-[11px] font-extrabold text-white shadow-[0_8px_20px_rgba(7,95,80,.24)] transition hover:-translate-y-0.5 hover:bg-blue-700"><span>{t("Start Validation")}</span> <span className="inline-block rtl:rotate-180" aria-hidden="true">→</span></button>
             </div>
           </div>
         </div>

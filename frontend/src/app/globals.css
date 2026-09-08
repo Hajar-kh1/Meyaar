@@ -43,9 +43,9 @@
 
 :root {
   --background: #f7f7f4;
-  --foreground: #172a33;
-  --meyaar-ink: #173846;
-  --meyaar-accent: #2f6f89;
+  --foreground: #17332f;
+  --meyaar-ink: #123c35;
+  --meyaar-accent: #075f50;
   --meyaar-surface: #ffffff;
 }
 
@@ -54,17 +54,17 @@
   --color-foreground: var(--foreground);
   --font-sans: "Segoe UI", Tahoma, Arial, sans-serif;
   --font-mono: var(--font-geist-mono);
-  --color-blue-50: #eef6f8;
-  --color-blue-100: #dcecf1;
-  --color-blue-200: #bfdbe4;
-  --color-blue-300: #91bdcb;
-  --color-blue-400: #629bb0;
-  --color-blue-500: #43839b;
-  --color-blue-600: #2f6f89;
-  --color-blue-700: #265b70;
-  --color-blue-800: #204b5c;
-  --color-blue-900: #193d4b;
-  --color-blue-950: #102b36;
+  --color-blue-50: #edf7f3;
+  --color-blue-100: #d7ebe3;
+  --color-blue-200: #add7c8;
+  --color-blue-300: #79bba7;
+  --color-blue-400: #459b83;
+  --color-blue-500: #1d7d68;
+  --color-blue-600: #075f50;
+  --color-blue-700: #064d42;
+  --color-blue-800: #073f37;
+  --color-blue-900: #08352f;
+  --color-blue-950: #03221e;
 }
 
 html {
@@ -99,13 +99,13 @@ html[lang="ar"] :where(h1, h2, h3, h4, h5, h6, p, a, button, label, th, td) {
 }
 
 .meyaar-landing-header {
-  background: rgb(239 248 251 / .94);
-  border-color: rgb(191 219 228 / .75);
+  background: rgb(247 251 248 / .94);
+  border-color: rgb(173 215 200 / .75);
 }
 
 .meyaar-capabilities {
-  background: rgb(239 248 251 / .94);
-  border-color: rgb(191 219 228 / .75);
+  background: rgb(241 248 244 / .95);
+  border-color: rgb(173 215 200 / .8);
 }
 
 html[dir="rtl"] .meyaar-hero-image {
@@ -126,13 +126,13 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid rgb(67 131 155 / .25);
+  outline: 3px solid rgb(7 95 80 / .25);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: #bfdbe4;
-  color: #102b36;
+  background: #add7c8;
+  color: #03221e;
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
