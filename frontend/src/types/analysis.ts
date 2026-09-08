@@ -173,6 +173,8 @@ export interface TeamDashboardData { team: { team_id: string; name: string; invi
 export interface MemberWorkDashboard { member: { user_id: string; name: string; email: string | null; role: UserRole; active_seconds_today: number; work_hours_today: number; work_percentage: number }; summary: { analyses_count: number; analyses_today: number; total_errors: number; average_compliance: number | null }; recent_analyses: Array<{ analysis_id: string; filename: string; analysis_type: "vector" | "image"; total_errors: number; compliance_score: number | null; created_at: string }>; }
 export interface TeamMembership { team_id: string; name: string; role: UserRole; joined_at?: string; invite_code?: string | null; }
 export interface ManagedTeamOverview { team_id: string; name: string; members_count: number; analyses_count: number; total_errors: number; average_compliance: number | null; }
+export interface ManagedTeamMemberSummary { user_id: string; name: string; email: string | null; role: UserRole; is_online: boolean; analyses_count: number; total_errors: number; average_compliance: number | null; }
+export interface ManagedTeamMemberOverview { team: { team_id: string; name: string }; members: ManagedTeamMemberSummary[]; }
 export interface NewUserPreview { action: "add" | "remove" | "create_team" | "delete_team" | "change_role" | "list_members" | "team_summary"; name: string | null; email: string | null; team_name: string | null; role: "leader" | "member"; suggested_username: string | null; missing_fields: string[]; }
 export interface TeamCommandPlan { summary: string; actions: NewUserPreview[]; }
 export interface UserDirectoryEntry { user_id: string; name: string; email: string | null; username: string | null; }

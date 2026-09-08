@@ -311,6 +311,33 @@ def managed_teams_overview(user: dict = Depends(current_user)):
     return [{**dict(row), "team_id": str(row["team_id"])} for row in rows]
 
 
+@app.get("/teams/{team_id}/member-summary")
+def managed_team_member_summary(team_id: str, user: dict = Depends(current_user)):
+    """Show member activity for one team owned by the current manager without switching teams."""
+    with database_engine().begin() as connection:
+        ensure_app_tables(connection)
+        team = connection.execute(text("""
+            SELECT team_id, name FROM public.teams
+            WHERE team_id = :team_id AND owner_user_id = :user_id
+        """), {"team_id": team_id, "user_id": user["user_id"]}).mappings().first()
+        if not team:
+            raise HTTPException(status_code=404, detail="Managed team not found.")
+        members = connection.execute(text("""
+            SELECT u.user_id, u.name, u.email, m.role,
+                   (u.last_seen IS NOT NULL AND u.last_seen >= CURRENT_TIMESTAMP - INTERVAL '2 minutes') AS is_online,
+                   COUNT(a.analysis_id)::int AS analyses_count,
+                   COALESCE(SUM(a.total_errors), 0)::int AS total_errors,
+                   ROUND(AVG(a.compliance_score)::numeric, 1) AS average_compliance
+            FROM public.team_memberships m
+            JOIN public.app_users u ON u.user_id = m.user_id
+            LEFT JOIN public.saved_analyses a ON a.team_id = m.team_id AND a.user_id = m.user_id
+            WHERE m.team_id = :team_id
+            GROUP BY u.user_id, u.name, u.email, m.role, u.last_seen
+            ORDER BY COUNT(a.analysis_id) DESC, LOWER(u.name)
+        """), {"team_id": team_id}).mappings().all()
+    return {"team": {"team_id": str(team["team_id"]), "name": team["name"]}, "members": [{**dict(row), "user_id": str(row["user_id"])} for row in members]}
+
+
 @app.get("/team/members/{member_id}/dashboard")
 def member_work_dashboard(member_id: str, user: dict = Depends(current_user)):
     if user["role"] not in ("manager", "leader") or not user["team_id"]:
