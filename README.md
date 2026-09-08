@@ -1,156 +1,131 @@
-# Meyaar
+# MEYAAR
 
-**AI-powered geospatial data quality and compliance validation for Saudi geospatial standards.**
+MEYAAR is a full-stack geospatial quality workspace for teams. It validates vector GIS data, analyses map images, prioritizes detected issues, and offers safe, reviewable remediation suggestions.
 
-Meyaar is a work-in-progress research/MVP project for evaluating GIS datasets and map images using a combination of geospatial topology analysis, machine learning, vision models, and retrieval-augmented generation (RAG).
+> This is an MVP and research project. It supports quality-review workflows; it is not an official certification tool.
 
-> Meyaar is designed to support validation against selected GeoSA standards and guidelines. It is not an official GeoSA certification tool.
+## Features
 
-## Current Work
+### Vector data quality
 
-The repository currently contains five experimental notebooks:
+- Upload GeoJSON, GeoPackage, CSV, GeoParquet, or a zipped Shapefile.
+- Automatically identify vector versus map-image uploads.
+- Detect road and building quality issues using PostGIS rules.
+- Prioritize findings from critical/high to low severity.
+- Apply only policy-approved geometry repairs and keep before/after audit records.
+- Export a separate corrected GeoJSON copy; the uploaded source file is never overwritten.
 
-| Notebook | Purpose |
-|---|---|
-| `01_topo4vec_baseline.ipynb` | Baseline experiments for controlled topology-error generation and representation learning |
-| `02_xgboost_topology_features.ipynb` | Topology-feature extraction and XGBoost classification experiments |
-| `03_vision_florence2.ipynb` | Vision experiments on map images using Florence-2 |
-| `04_element_presence.ipynb` | Paired experiments for detecting presence/missing map elements |
-| `05_geosa_rag.ipynb` | Initial GeoSA knowledge retrieval / RAG experiments |
+### Map image quality
 
-## MVP Scope
+- Upload PNG, JPG, JPEG, TIF, or TIFF map images.
+- Detect missing map title, legend, scale, and north arrow.
+- Add an element manually or ask the map-elements agent for a preview-only suggestion.
+- Preview, reposition, remove, and download a new image without changing the original image.
 
-### Roads
-- Overshoot
-- Undershoot
-- Duplicate geometry
-- Invalid geometry
-- Missing geometry
+### Team workspace
 
-### Buildings
-- Overlap
-- Duplicate geometry
-- Invalid geometry
-- Missing geometry
+- Authentication, roles, teams, leaders, and members.
+- Team activity summaries and per-member analysis statistics.
+- Saved analyses and JSON/PDF reporting.
+- Arabic/English interface with light and dark themes.
 
-### General GIS Validation
-- Missing or incorrect CRS
-- Invalid coordinates
-- Missing required attributes
-- Wrong data types
-- Invalid attribute values
+## Architecture
 
-### Map Images
-- Missing title
-- Missing legend
-- Missing scale
-- Missing north arrow
-- Element overlap
-- Element clipping
-- Text/label overlap
-- Illegible text
+```text
+Next.js frontend
+       │
+       ▼
+FastAPI backend ──────► Agent services
+       │                     ├─ validation/remediation agent
+       ▼                     └─ map-elements suggestion agent
+PostgreSQL + PostGIS
+       │
+       ▼
+Spatial validation rules, saved analyses, and remediation audit records
+```
 
-## Approach
-
-Meyaar is being developed as several complementary components:
-
-1. **GIS validation and controlled error injection** for creating labeled topology examples.
-2. **Machine-learning experiments** for classifying selected geospatial quality errors.
-3. **Vision experiments** for detecting map-layout and cartographic element issues.
-4. **GeoSA RAG** for retrieving relevant requirements and supporting compliance explanations.
-5. **Rule-based validation** for deterministic checks where explicit geospatial rules are more appropriate.
-
-## Meyaar-SA Benchmark
-
-A core project goal is the creation of a reproducible labeled benchmark for selected Saudi geospatial quality tasks.
-
-For GIS experiments, the intended workflow is:
-
-`Real geospatial data → controlled error injection → ground-truth labels → train/test split → evaluation`
-
-Example ground-truth fields include:
-
-- `feature_id`
-- `error_type`
-- `severity`
-- `rule_id`
-
-## Data
-
-The working dataset is intentionally **not stored directly in this Git repository** because several source and processed files are hundreds of megabytes.
-
-Current working data includes:
-- Riyadh road geometries
-- Riyadh building geometries
-- Riyadh connector geometries
-- Map-image datasets
-- GeoSA standards and supporting reference documents
-
-See [`data/README.md`](data/README.md) for the dataset organization.
-
-## Repository Structure
+## Project structure
 
 ```text
 Meyaar/
-├── README.md
+├── frontend/                 # Next.js user interface
+├── src/
+│   ├── api/                  # FastAPI routes, auth, and contracts
+│   ├── validation/           # PostGIS validation rules
+│   ├── insertion/            # Vector ingestion
+│   └── vision/               # Map-image analysis pipeline
+├── agent/
+│   ├── graph/                # Error analysis workflow
+│   ├── remediation/          # Safe remediation policy
+│   ├── map_elements/         # Preview-only map element suggestions
+│   └── api/                  # Agent API routes
+├── docker-compose.vector-dev.yml
 ├── requirements.txt
-├── .gitignore
-├── LICENSE
-├── notebooks/
-├── data/
-│   └── samples/
-├── references/
-├── results/
-│   ├── figures/
-│   └── metrics/
-└── docs/
+└── .env.example
 ```
 
-## Installation
+## Run locally (Windows)
 
-```bash
-git clone https://github.com/NoufHar/Meyaar.git
-cd Meyaar
-python -m venv .venv
+### 1. Configure local environment
+
+Create a local `.env` from `.env.example` and set your own values. Never commit `.env`, credentials, or API keys.
+
+Required database setting:
+
+```env
+MEYAAR_DATABASE_URL=postgresql+psycopg2://postgres@127.0.0.1:55432/meyaar_db
 ```
 
-Activate the environment, then install dependencies:
+### 2. Start PostGIS with Docker
 
-```bash
-pip install -r requirements.txt
+Make sure Docker Desktop is running, then from the repository root:
+
+```powershell
+docker compose -f docker-compose.vector-dev.yml up -d
+docker ps
 ```
 
-The notebooks are primarily intended to be run independently while the MVP pipeline is under development.
+### 3. Start the backend
 
-## Evaluation
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m uvicorn src.api.main:app --reload --port 8000
+```
 
-Depending on the component, evaluation includes:
+API documentation: `http://127.0.0.1:8000/docs`
 
-- Accuracy
-- Precision
-- Recall
-- F1-score
-- Confusion matrix
-- ROC-AUC where appropriate
-- Spatial holdout evaluation
-- Per-element vision accuracy/F1
-- RAG retrieval quality and citation grounding
+### 4. Start the frontend
 
-## Roadmap
+Open a new terminal:
 
-- [x] Prepare Riyadh road/building datasets
-- [x] Controlled topology-error experiments
-- [x] Baseline ML experiments
-- [x] XGBoost topology-feature experiments
-- [x] Initial vision experiments
-- [x] Initial GeoSA RAG experiment
-- [ ] Consolidate Meyaar-SA benchmark
-- [ ] Implement documented validation rules
-- [ ] Integrate vision validation pipeline
-- [ ] Integrate GeoSA RAG with validation output
-- [ ] Add compliance score and error report
-- [ ] Build unified MVP interface
+```powershell
+cd frontend
+npm.cmd install
+npm.cmd run dev
+```
 
-## Data and Reference Licensing
+Open `http://localhost:3000`.
 
-Code in this repository is licensed under the MIT License. External datasets, standards, map images, and reference documents retain their original licenses and terms of use and are not relicensed by this repository.
+### Stop the database
+
+```powershell
+docker compose -f docker-compose.vector-dev.yml down
+```
+
+## Safe remediation policy
+
+MEYAAR does not silently alter user data:
+
+1. The validation engine detects an issue.
+2. The agent classifies it as auto-fixable, review-required, or no-action.
+3. Only approved geometry repairs run automatically and are audited.
+4. Heuristic topology issues, such as overshoots and undershoots, require human review on the map.
+5. Map-image suggestions are previews only; the user may accept, edit, remove, or download a separate copy.
+
+## Security
+
+The repository intentionally ignores secrets and local-only files, including `.env`, key/certificate files, credential files, virtual environments, caches, and `node_modules`. Use `.env.example` files as templates only.
+
+## License
+
+Code is distributed under the repository's MIT License. Third-party datasets, map imagery, standards, and reference documents retain their own licenses.
