@@ -12,6 +12,7 @@ import type {
   TeamDashboardData,
   MemberWorkDashboard,
   TeamMembership,
+  ManagedTeamOverview,
   NewUserPreview,
   CreatedTeamUser,
   TeamCommandPlan,
@@ -148,6 +149,7 @@ export async function downloadBatchJson(analysisIds: string[]): Promise<void> { 
 
 function downloadBlob(blob: Blob, filename: string) { const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url); }
 export async function getTeamDashboard(): Promise<TeamDashboardData> { return parseResponse<TeamDashboardData>(await fetch(`${API_BASE_URL}/team/dashboard`, { headers: authHeaders() })); }
+export async function getManagedTeamsOverview(): Promise<ManagedTeamOverview[]> { return parseResponse<ManagedTeamOverview[]>(await fetch(`${API_BASE_URL}/teams/overview`, { headers: authHeaders() })); }
 export async function getMemberWorkDashboard(userId: string): Promise<MemberWorkDashboard> { return parseResponse<MemberWorkDashboard>(await fetch(`${API_BASE_URL}/team/members/${userId}/dashboard`, { headers: authHeaders() })); }
 export async function inviteTeamMember(email: string): Promise<{ status: string; email: string }> { return parseResponse(await fetch(`${API_BASE_URL}/team/invitations`, { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify({ email }) })); }
 export async function listTeams(): Promise<TeamMembership[]> { return parseResponse(await fetch(`${API_BASE_URL}/teams`, { headers: authHeaders() })); }

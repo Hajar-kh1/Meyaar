@@ -289,6 +289,28 @@ def team_dashboard(user: dict = Depends(current_user)):
     return {"team": {"team_id": user["team_id"], "name": user["team_name"], "invite_code": user["invite_code"]}, "summary": dict(totals), "members": [{**dict(row), "user_id": str(row["user_id"]), "created_at": row["created_at"].isoformat()} for row in members]}
 
 
+@app.get("/teams/overview")
+def managed_teams_overview(user: dict = Depends(current_user)):
+    """Return an aggregated view of every team owned by the signed-in manager."""
+    engine = database_engine()
+    with engine.begin() as connection:
+        ensure_app_tables(connection)
+        rows = connection.execute(text("""
+            SELECT t.team_id, t.name,
+                   COUNT(DISTINCT m.user_id)::int AS members_count,
+                   COUNT(DISTINCT a.analysis_id)::int AS analyses_count,
+                   COALESCE(SUM(a.total_errors), 0)::int AS total_errors,
+                   ROUND(AVG(a.compliance_score)::numeric, 1) AS average_compliance
+            FROM public.teams t
+            LEFT JOIN public.team_memberships m ON m.team_id = t.team_id
+            LEFT JOIN public.saved_analyses a ON a.team_id = t.team_id
+            WHERE t.owner_user_id = :user_id
+            GROUP BY t.team_id, t.name
+            ORDER BY LOWER(t.name)
+        """), {"user_id": user["user_id"]}).mappings().all()
+    return [{**dict(row), "team_id": str(row["team_id"])} for row in rows]
+
+
 @app.get("/team/members/{member_id}/dashboard")
 def member_work_dashboard(member_id: str, user: dict = Depends(current_user)):
     if user["role"] not in ("manager", "leader") or not user["team_id"]:

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { activateTeam, addExistingTeamMember, createTeam, createTeamUser, deleteTeam, getMe, interpretTeamCommands, removeTeamMember, searchUserDirectory, updateTeamMemberRole } from "@/lib/api";
-import type { AuthUser, NewUserPreview, TeamCommandPlan, TeamDashboardData, UserDirectoryEntry } from "@/types/analysis";
+import { activateTeam, addExistingTeamMember, createTeam, createTeamUser, deleteTeam, getManagedTeamsOverview, getMe, interpretTeamCommands, removeTeamMember, searchUserDirectory, updateTeamMemberRole } from "@/lib/api";
+import type { AuthUser, ManagedTeamOverview, NewUserPreview, TeamCommandPlan, TeamDashboardData, UserDirectoryEntry } from "@/types/analysis";
 import { useLanguage } from "@/components/LanguageProvider";
 
 type Props = { data: TeamDashboardData; onClose: () => void; onComplete: (user: AuthUser) => void };
@@ -32,6 +32,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState<string[] | null>(null);
+  const [managedTeams, setManagedTeams] = useState<ManagedTeamOverview[] | null>(null);
 
   function candidates(action: NewUserPreview) {
     const available = data.members.filter((member) => member.role !== "manager");
@@ -46,7 +47,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   async function review(messageOverride?: string) {
     const message = (messageOverride ?? instruction).trim();
     if (!message) return;
-    setBusy(true); setError(""); setResults(null); setSentMessage(message);
+    setBusy(true); setError(""); setResults(null); setManagedTeams(null); setSentMessage(message);
     try {
       const interpreted = await interpretTeamCommands(message);
       const next = {
@@ -119,7 +120,11 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           if ((deleteConfirmations[index] ?? "").trim() !== data.team.name) throw new Error(`Type ${data.team.name} to confirm team deletion.`);
           activeUser = await deleteTeam(activeTeamId); activeTeamId = activeUser.team_id; completed.push("Deleted the active team.");
         } else if (action.action === "list_members") completed.push(`Team has ${data.members.length} members.`);
-        else if (action.action === "team_summary") completed.push(`${data.summary.analyses_count} analyses, ${data.summary.total_errors} errors, ${data.summary.average_compliance ?? "—"}% compliance.`);
+        else if (action.action === "team_summary") {
+          const teams = await getManagedTeamsOverview();
+          setManagedTeams(teams);
+          completed.push(`${teams.length} managed ${teams.length === 1 ? "team" : "teams"} loaded.`);
+        }
       }
       if (activeTeamId) activeUser = await activateTeam(activeTeamId);
       setResults(completed); onComplete(activeUser);
@@ -128,7 +133,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     } finally { setBusy(false); }
   }
 
-  function resetChat() { setPlan(null); setResults(null); setSentMessage(""); setInstruction(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({}); }
+  function resetChat() { setPlan(null); setResults(null); setManagedTeams(null); setSentMessage(""); setInstruction(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({}); }
 
   const isArabic = language === "ar";
   const copy = isArabic ? {
@@ -175,7 +180,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
             </article>
           ))}</div>{!results && <div className="mt-3 flex justify-end gap-2"><button type="button" onClick={resetChat} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600">Edit</button><button type="button" disabled={busy} onClick={() => void execute()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:bg-slate-400">{busy ? "Working…" : "Confirm"}</button></div>}</AssistantBubble>}
 
-          {results && <AssistantBubble><p className="font-bold text-emerald-700">{copy.completed}</p><ul className="mt-2 space-y-1.5">{results.map((result, index) => <li key={`${index}-${result}`}>• {result}</li>)}</ul><div className="mt-4 rounded-xl bg-slate-50 p-3"><p className="font-semibold text-[#071c33]">{copy.more}</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={resetChat} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">{copy.newTask}</button><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600">{copy.end}</button></div></div></AssistantBubble>}
+          {results && <AssistantBubble><p className="font-bold text-emerald-700">{copy.completed}</p><ul className="mt-2 space-y-1.5">{results.map((result, index) => <li key={`${index}-${result}`}>• {result}</li>)}</ul>{managedTeams && <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white"><div className="border-b border-slate-100 px-3 py-2 text-xs font-bold text-[#071c33]">{isArabic ? "الفرق التابعة لك" : "Your teams"}</div>{managedTeams.length ? managedTeams.map((team) => <div key={team.team_id} className="border-b border-slate-100 px-3 py-2.5 last:border-0"><div className="flex items-center justify-between gap-2"><strong className="text-xs text-[#071c33]">{team.name}</strong><span className="text-[11px] font-bold text-blue-700">{team.average_compliance ?? "—"}%</span></div><p className="mt-1 text-[11px] text-slate-500">{team.members_count} {isArabic ? "أعضاء" : "members"} · {team.analyses_count} {isArabic ? "تحليلات" : "analyses"} · {team.total_errors} {isArabic ? "أخطاء" : "errors"}</p></div>) : <p className="px-3 py-3 text-xs text-slate-500">{isArabic ? "لا توجد فرق مملوكة." : "No managed teams found."}</p>}</div>}<div className="mt-4 rounded-xl bg-slate-50 p-3"><p className="font-semibold text-[#071c33]">{copy.more}</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={resetChat} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">{copy.newTask}</button><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600">{copy.end}</button></div></div></AssistantBubble>}
           {error && <div className="ml-11 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         </div>
 
