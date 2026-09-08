@@ -133,14 +133,14 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
 
   return (
     <div className="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-950/55 p-3" role="dialog" aria-modal="true">
-      <section className="flex h-[min(680px,88vh)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-[#f4f7fb] shadow-2xl">
+      <section className="flex h-[min(620px,86vh)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-[#f4f7fb] shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
           <div className="flex items-center gap-2.5"><span className="flex size-9 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">M</span><div><h2 className="text-sm font-black text-[#071c33]">{copy.title}</h2><p className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="size-1.5 rounded-full bg-emerald-500" />{copy.online}</p></div></div>
           <button type="button" onClick={onClose} aria-label="Close" className="flex size-9 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-600">×</button>
         </header>
 
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
-          {!sentMessage && <><AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble><div className="ms-10 grid gap-2 sm:grid-cols-2">{copy.quick.map((item) => <button key={item.title} type="button" disabled={busy} onClick={() => void review(item.prompt)} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-start shadow-sm transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60"><p className="text-sm font-bold text-[#071c33]">{item.title}<span className="ms-2 text-blue-600">←</span></p><p className="mt-0.5 text-[11px] text-slate-500">{item.hint}</p></button>)}</div></>}
+          {!sentMessage && <><AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble><div className="ms-10 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">{copy.quick.map((item, index) => <button key={item.title} type="button" disabled={busy} onClick={() => void review(item.prompt)} className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-start transition hover:bg-blue-50 disabled:opacity-60 ${index ? "border-t border-slate-100" : ""}`}><span><span className="block text-sm font-bold text-[#071c33]">{item.title}</span><span className="mt-0.5 block text-[11px] text-slate-500">{item.hint}</span></span><span className="shrink-0 text-lg text-blue-600 rtl:rotate-180">→</span></button>)}</div></>}
           {sentMessage && <div className="flex justify-end"><div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm leading-6 text-white">{sentMessage}</div></div>}
           {busy && !plan && <AssistantBubble><p className="text-slate-500">{copy.preparing}</p></AssistantBubble>}
 
