@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 
 import type { VisionAnalysisResponse } from "@/types/analysis";
@@ -13,6 +13,9 @@ export default function VisionPreview({ result, imageUrl }: VisionPreviewProps) 
   const [showLegend, setShowLegend] = useState(false);
   const [showScale, setShowScale] = useState(false);
   const [showNorthArrow, setShowNorthArrow] = useState(false);
+  const [northPosition, setNorthPosition] = useState({ x: 8, y: 15 });
+  const [draggingNorth, setDraggingNorth] = useState(false);
+  const imageShellRef = useRef<HTMLDivElement>(null);
   const missingElements = result.elements.filter((element) => !element.present);
   const titleMissing = missingElements.some((element) => element.element === "title");
   const arabic = language === "ar";
@@ -51,7 +54,7 @@ export default function VisionPreview({ result, imageUrl }: VisionPreviewProps) 
       context.strokeStyle = "#071c33"; context.lineWidth = Math.max(2, Math.round(canvas.width * 0.003)); context.beginPath(); context.moveTo(sx, sy); context.lineTo(sx + width, sy); context.moveTo(sx, sy - box / 2); context.lineTo(sx, sy + box / 2); context.moveTo(sx + width, sy - box / 2); context.lineTo(sx + width, sy + box / 2); context.stroke(); context.fillStyle = "#071c33"; context.font = `700 ${box}px Arial, sans-serif`; context.fillText("0                 100 m", sx, sy + box * 1.4);
     }
     if (showNorthArrow) {
-      const nx = Math.round(canvas.width * 0.08), ny = headerHeight + Math.round(source.naturalHeight * 0.15), size = Math.round(canvas.width * 0.035);
+      const nx = Math.round(canvas.width * northPosition.x / 100), ny = Math.round(canvas.height * northPosition.y / 100), size = Math.round(canvas.width * 0.035);
       context.fillStyle = "rgba(255,255,255,0.88)"; context.fillRect(nx - size, ny - size * 1.5, size * 2, size * 3.3); context.fillStyle = "#071c33"; context.font = `700 ${box}px Arial, sans-serif`; context.fillText("N", nx - box / 2, ny - size); context.beginPath(); context.moveTo(nx, ny - size * 0.45); context.lineTo(nx - size * 0.45, ny + size * 0.85); context.lineTo(nx, ny + size * 0.48); context.lineTo(nx + size * 0.45, ny + size * 0.85); context.closePath(); context.fill();
     }
     const link = document.createElement("a");
@@ -62,7 +65,7 @@ export default function VisionPreview({ result, imageUrl }: VisionPreviewProps) 
   return (
     <section className="grid overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:grid-cols-2">
       <div className="flex min-h-80 items-center justify-center bg-slate-100 p-5">
-        {imageUrl ? <div className="relative max-w-full overflow-hidden rounded-xl shadow">{title.trim() && <div className={`flex h-14 items-center bg-white px-5 text-sm font-extrabold text-[#071c33] sm:text-base ${placement === "left" ? "justify-start" : placement === "right" ? "justify-end" : "justify-center"}`}>{title}</div>}<Image src={imageUrl} alt={`Uploaded map ${result.filename}`} width={1200} height={800} unoptimized className="max-h-[520px] h-auto max-w-full object-contain" />{showLegend && <div className="absolute right-[7%] top-[56%] rounded bg-white/90 p-2 text-[9px] text-[#071c33] shadow"><b>{copy.legend}</b><span className="mt-1 block text-blue-700">■ Area 1</span><span className="block text-emerald-600">■ Area 2</span><span className="block text-amber-500">■ Area 3</span></div>}{showScale && <div className="absolute bottom-[8%] left-[6%] rounded bg-white/90 px-2 py-1 text-[9px] font-bold text-[#071c33] shadow"><span className="inline-block w-20 border-b-2 border-[#071c33]"/><br/>0　　　 100 m</div>}{showNorthArrow && <div className={`absolute left-[8%] rounded bg-white/90 px-2 py-1 text-center text-sm font-black text-[#071c33] shadow ${title.trim() ? "top-[18%]" : "top-[10%]"}`}>N<br/>▲</div>}</div> : <p className="text-sm text-slate-500">Image preview unavailable.</p>}
+        {imageUrl ? <div ref={imageShellRef} onPointerMove={(event) => { if (!draggingNorth || !imageShellRef.current) return; const rect = imageShellRef.current.getBoundingClientRect(); setNorthPosition({ x: Math.min(94, Math.max(6, ((event.clientX - rect.left) / rect.width) * 100)), y: Math.min(92, Math.max(8, ((event.clientY - rect.top) / rect.height) * 100)) }); }} onPointerUp={() => setDraggingNorth(false)} onPointerLeave={() => setDraggingNorth(false)} className="relative max-w-full overflow-hidden rounded-xl shadow">{title.trim() && <div className={`flex h-14 items-center bg-white px-5 text-sm font-extrabold text-[#071c33] sm:text-base ${placement === "left" ? "justify-start" : placement === "right" ? "justify-end" : "justify-center"}`}>{title}</div>}<Image src={imageUrl} alt={`Uploaded map ${result.filename}`} width={1200} height={800} unoptimized className="max-h-[520px] h-auto max-w-full object-contain" />{showLegend && <div className="absolute right-[7%] top-[56%] rounded bg-white/90 p-2 text-[9px] text-[#071c33] shadow"><b>{copy.legend}</b><span className="mt-1 block text-blue-700">■ Area 1</span><span className="block text-emerald-600">■ Area 2</span><span className="block text-amber-500">■ Area 3</span></div>}{showScale && <div className="absolute bottom-[8%] left-[6%] rounded bg-white/90 px-2 py-1 text-[9px] font-bold text-[#071c33] shadow"><span className="inline-block w-20 border-b-2 border-[#071c33]"/><br/>0　　　 100 m</div>}{showNorthArrow && <div onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); setDraggingNorth(true); }} style={{ left: `${northPosition.x}%`, top: `${northPosition.y}%` }} className="absolute z-10 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded bg-white/90 px-2 py-1 text-center text-sm font-black text-[#071c33] shadow active:cursor-grabbing" title={arabic ? "اسحبي السهم لتغيير موقعه" : "Drag to move the north arrow"}>N<br/>▲</div>}</div> : <p className="text-sm text-slate-500">Image preview unavailable.</p>}
       </div>
       <div className="p-6">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">{t("Vision analysis")}</p>
