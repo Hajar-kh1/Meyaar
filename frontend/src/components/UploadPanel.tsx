@@ -138,6 +138,32 @@ export default function UploadPanel({
     }
   }
 
+  if (isLoading) {
+    const steps = [
+      { label: "قراءة البيانات", at: 5 },
+      { label: "اكتشاف نوع الطبقة", at: 18 },
+      { label: "فحص الهندسة والطوبولوجيا", at: 38 },
+      { label: "تقييم جودة البيانات", at: 62 },
+      { label: "مطابقة متطلبات GeoSA", at: 82 },
+      { label: "إعداد النتائج", at: 98 },
+    ];
+    return <section dir="rtl" className="overflow-hidden rounded-2xl border border-[#dfe5e1] bg-white shadow-sm">
+      <div className="grid min-h-[590px] lg:grid-cols-[240px_minmax(0,1fr)_280px]">
+        <aside className="border-e border-slate-200 p-6">
+          <div className="space-y-5">{steps.map((step) => <div key={step.label} className={`flex items-center gap-3 text-sm ${progress >= step.at ? "font-bold text-[#075f50]" : "text-slate-400"}`}><span className={`flex size-5 items-center justify-center rounded-full text-[10px] ${progress >= step.at ? "bg-[#0b806c] text-white" : "border border-slate-300 bg-white"}`}>{progress >= step.at ? "✓" : ""}</span>{step.label}</div>)}</div>
+          <button type="button" disabled className="mt-16 w-full rounded-lg border border-slate-300 py-2.5 text-sm font-bold text-slate-500">إلغاء الفحص</button>
+        </aside>
+        <div className="flex flex-col justify-center p-6 text-center">
+          <h2 className="text-2xl font-extrabold text-[#17332f]">جاري فحص البيانات...</h2><p className="mt-2 text-sm text-slate-500">يقوم المحلل بفحص بياناتك باستخدام محرك معيار</p>
+          <div className="relative mx-auto mt-6 aspect-square w-full max-w-[330px] overflow-hidden rounded-xl border border-[#dce7e2] bg-[#eff5f1]"><div className="absolute inset-0 opacity-60 [background-image:linear-gradient(32deg,transparent_46%,#75a99a_47%,#75a99a_49%,transparent_50%),linear-gradient(145deg,transparent_45%,#b8cfc7_46%,#b8cfc7_48%,transparent_49%),repeating-linear-gradient(90deg,transparent_0_34px,#cbdcd6_35px_36px),repeating-linear-gradient(0deg,transparent_0_34px,#cbdcd6_35px_36px)]"/><div className="absolute inset-x-8 top-1/2 h-1 -rotate-12 rounded-full bg-[#0b806c] shadow-[0_0_18px_rgba(11,128,108,.5)]"/></div>
+          <div className="mx-auto mt-7 w-full max-w-xl"><div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-[#0b806c] transition-[width]" style={{ width: `${progress}%` }}/></div><div className="mt-2 flex justify-between text-xs text-slate-500"><span>{progress}%</span><span>{files[currentFile]?.name}</span></div></div>
+          <p className="mt-6 text-xs text-slate-400">قد يستغرق الفحص عدة دقائق حسب حجم البيانات — {elapsedSeconds} ثانية</p>
+        </div>
+        <aside className="flex items-center border-s border-slate-200 p-5"><div className="w-full rounded-xl border border-slate-200 bg-[#fdfefc] p-5 text-start"><p className="text-xs text-slate-400">الطبقة الحالية</p><strong className="mt-1 block text-lg text-[#17332f]">{detectUploadMode(files[currentFile] ?? files[0]) === "vector" ? "بيانات مكانية" : "صورة خريطة"}</strong><ul className="mt-5 space-y-3 text-sm text-slate-600"><li>تم رفع الملف بنجاح</li><li>{progress >= 18 ? "تم اكتشاف نوع الطبقة" : "جاري اكتشاف نوع الطبقة"}</li><li>{progress >= 62 ? "اكتمل فحص الجودة" : "جاري فحص التفاصيل"}</li><li>{progress >= 98 ? "النتائج جاهزة" : "لا توجد أخطاء حتى الآن"}</li></ul></div></aside>
+      </div>
+    </section>;
+  }
+
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-6">
