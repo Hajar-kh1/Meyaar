@@ -112,6 +112,9 @@ html[dir="rtl"] .meyaar-hero-image {
   transform: scaleX(-1);
 }
 
+/* Version three artwork already has the intended physical composition. */
+html[dir="rtl"] .meyaar-third-hero-image { transform: scaleX(1); }
+
 button,
 a,
 input,
