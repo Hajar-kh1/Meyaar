@@ -31,8 +31,8 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     return matches.length ? matches : available;
   }
 
-  async function review() {
-    const message = instruction.trim();
+  async function review(messageOverride?: string) {
+    const message = (messageOverride ?? instruction).trim();
     if (!message) return;
     setBusy(true); setError(""); setResults(null); setSentMessage(message);
     try {
@@ -108,20 +108,28 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     } finally { setBusy(false); }
   }
 
-  function resetChat() { setPlan(null); setResults(null); setSentMessage(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({}); }
+  function resetChat() { setPlan(null); setResults(null); setSentMessage(""); setInstruction(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({}); }
+
+  const quickActions = [
+    { title: "إضافة عضو", hint: "أضف عضوًا أو أنشئ حسابًا جديدًا", prompt: "أضف عضوًا جديدًا إلى الفريق" },
+    { title: "إنشاء فريق", hint: "أنشئ فريقًا جديدًا", prompt: "أنشئ فريقًا جديدًا" },
+    { title: "تغيير الدور", hint: "اجعل عضوًا قائد فريق", prompt: "غيّر دور أحد الأعضاء إلى قائد فريق" },
+    { title: "إدارة الأعضاء", hint: "عرض أو إزالة عضو", prompt: "اعرض أعضاء الفريق" },
+    { title: "ملخص الفريق", hint: "عرض الأداء والتحليلات", prompt: "اعرض ملخص الفريق" },
+  ];
 
   return (
     <div className="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-950/55 p-3" role="dialog" aria-modal="true">
       <section className="flex h-[min(760px,92vh)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-[#f4f7fb] shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
-          <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-full bg-blue-600 font-black text-white">M</span><div><h2 className="font-black text-[#071c33]">Team management assistant</h2><p className="flex items-center gap-1.5 text-xs text-slate-500"><span className="size-2 rounded-full bg-emerald-500" />Online</p></div></div>
+          <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-full bg-blue-600 font-black text-white">M</span><div><h2 className="font-black text-[#071c33]">مساعد إدارة الفريق</h2><p className="flex items-center gap-1.5 text-xs text-slate-500"><span className="size-2 rounded-full bg-emerald-500" />متصل الآن</p></div></div>
           <button type="button" onClick={onClose} aria-label="Close" className="flex size-9 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-600">×</button>
         </header>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          {!sentMessage && <AssistantBubble><p>Tell me what you want to do. You can create a team, add several members, assign roles, or remove members in one message.</p></AssistantBubble>}
+          {!sentMessage && <><AssistantBubble><p className="font-bold text-[#071c33]">كيف أقدر أساعدك في إدارة الفريق؟</p><p className="mt-1 text-xs text-slate-500">اكتبي طلبك بالعربي أو الإنجليزي، مثل: «أنشئ فريق جودة وأضف سارة كقائدة فريق».</p></AssistantBubble><div className="ml-11 grid gap-2 sm:grid-cols-2">{quickActions.map((item) => <button key={item.title} type="button" disabled={busy} onClick={() => void review(item.prompt)} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-start shadow-sm transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60"><p className="text-sm font-bold text-[#071c33]">{item.title}<span className="ms-2 text-blue-600">←</span></p><p className="mt-0.5 text-xs text-slate-500">{item.hint}</p></button>)}</div></>}
           {sentMessage && <div className="flex justify-end"><div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm leading-6 text-white">{sentMessage}</div></div>}
-          {busy && !plan && <AssistantBubble><p className="text-slate-500">Preparing your plan…</p></AssistantBubble>}
+          {busy && !plan && <AssistantBubble><p className="text-slate-500">جارٍ تجهيز مراجعة طلبك…</p></AssistantBubble>}
 
           {plan && <AssistantBubble wide><p>{plan.summary}</p><div className="mt-3 space-y-2">{plan.actions.map((action, index) => (
             <article key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -136,11 +144,11 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
             </article>
           ))}</div>{!results && <div className="mt-3 flex justify-end gap-2"><button type="button" onClick={resetChat} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600">Edit</button><button type="button" disabled={busy} onClick={() => void execute()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:bg-slate-400">{busy ? "Working…" : "Confirm"}</button></div>}</AssistantBubble>}
 
-          {results && <AssistantBubble><p className="font-bold text-emerald-700">Completed</p><ul className="mt-2 space-y-1.5">{results.map((result, index) => <li key={`${index}-${result}`}>• {result}</li>)}</ul><button type="button" onClick={resetChat} className="mt-3 font-bold text-blue-600">Start another request</button></AssistantBubble>}
+          {results && <AssistantBubble><p className="font-bold text-emerald-700">تم تنفيذ الطلب</p><ul className="mt-2 space-y-1.5">{results.map((result, index) => <li key={`${index}-${result}`}>• {result}</li>)}</ul><div className="mt-4 rounded-xl bg-slate-50 p-3"><p className="font-semibold text-[#071c33]">هل تحتاجين مساعدة أخرى؟</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={resetChat} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">مهمة جديدة</button><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600">إنهاء المحادثة</button></div></div></AssistantBubble>}
           {error && <div className="ml-11 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         </div>
 
-        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-4"><div className="flex items-end gap-2 rounded-2xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(plan)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-10 flex-1 resize-none px-2 py-2 text-sm outline-none disabled:bg-white" placeholder={plan ? "Complete or edit the current plan" : "Message the team assistant…"} /><button type="submit" disabled={busy || Boolean(plan) || !instruction.trim()} aria-label="Send" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-lg text-white disabled:bg-slate-300">↑</button></div></form>
+        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-4"><div className="flex items-end gap-2 rounded-2xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(plan) || Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-10 flex-1 resize-none px-2 py-2 text-sm outline-none disabled:bg-white" placeholder={plan ? "راجعي الخطة ثم أكدي التنفيذ" : results ? "اختاري مهمة جديدة أو إنهاء المحادثة" : "اكتبي طلبك لإدارة الفريق…"} /><button type="submit" disabled={busy || Boolean(plan) || Boolean(results) || !instruction.trim()} aria-label="إرسال" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-lg text-white disabled:bg-slate-300">↑</button></div></form>
       </section>
     </div>
   );
