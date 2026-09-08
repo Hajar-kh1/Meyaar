@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "Meyaar | Geospatial Validation",
   description:
     "Geospatial data validation and error analysis dashboard.",
+  icons: { icon: "/branding/meyaar-project-icon.webp" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

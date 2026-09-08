@@ -23,7 +23,7 @@ export default function AppSidebar({ activeView, onNavigate }: AppSidebarProps) 
   return (
     <aside className="fixed inset-x-0 bottom-0 z-[3000] flex shrink-0 flex-col bg-[#173846] text-white shadow-[0_-8px_30px_rgba(15,42,53,.14)] lg:inset-y-0 lg:left-0 lg:right-auto lg:w-56 lg:shadow-2xl lg:shadow-slate-950/10 rtl:lg:left-auto rtl:lg:right-0">
       <div className="hidden h-[72px] items-center gap-3 border-b border-white/10 px-5 lg:flex">
-        <Image src="/branding/meyaar-logo.png" alt="Meyaar logo" width={38} height={38} className="size-9 rounded-lg bg-white object-cover shadow-md ring-1 ring-white/20" />
+        <Image src="/branding/meyaar-project-icon.webp" alt="Meyaar project icon" width={38} height={38} className="size-9 rounded-lg bg-white object-contain p-0.5 shadow-md ring-1 ring-white/20" />
         <p className="text-lg font-black tracking-[0.08em] text-white">MEYAAR</p>
       </div>
       <nav className="grid grid-cols-5 gap-1 p-2 lg:flex lg:flex-1 lg:flex-col lg:gap-2 lg:overflow-visible lg:p-4 lg:pt-5">
