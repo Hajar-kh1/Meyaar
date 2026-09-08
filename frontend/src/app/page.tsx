@@ -104,7 +104,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background pb-20 text-slate-950 lg:pb-0">
       <AppSidebar activeView={view} onNavigate={setView} onLogout={async () => { await logout(); setUser(null); setResult(null); }} />
-      <div className="lg:pl-[200px] rtl:lg:pl-0 rtl:lg:pr-[200px]">
+      <div className="lg:pl-[150px] rtl:lg:pl-0 rtl:lg:pr-[150px]">
         <header className="sticky top-0 z-[1000] flex min-h-[72px] items-center justify-between gap-4 border-b border-slate-200/80 bg-white/95 px-5 shadow-[0_1px_12px_rgba(15,23,42,0.04)] backdrop-blur-xl lg:px-7"><div className="min-w-0"><h1 className="truncate text-xl font-extrabold tracking-tight text-[#071c33]">{t(heading.title)}</h1><p className="mt-0.5 hidden text-xs text-slate-500 sm:block">{t(heading.description)}</p></div><DisplayControls /></header>
         <main className="mx-auto w-full max-w-[1500px] p-3 sm:p-4 lg:p-5 xl:p-6">
           {view === "upload" && <div className="mx-auto max-w-4xl"><UploadPanel onResult={(newResult, file, mode, batch) => { setBatchUploads(batch); setShowBatchOverview(batch.length > 1); setResult(newResult); setSelectedErrorId(null); setSearch(""); setSeverity("all"); setErrorType("all"); setImageUrl((current) => { if (current) URL.revokeObjectURL(current); return mode === "image" ? URL.createObjectURL(file) : null; }); setView("analysis"); }} /></div>}
