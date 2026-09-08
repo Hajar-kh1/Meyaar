@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { activateTeam, addExistingTeamMember, createTeam, createTeamUser, deleteTeam, getMe, interpretTeamCommands, removeTeamMember, searchUserDirectory, updateTeamMemberRole } from "@/lib/api";
 import type { AuthUser, NewUserPreview, TeamCommandPlan, TeamDashboardData, UserDirectoryEntry } from "@/types/analysis";
+import { useLanguage } from "@/components/LanguageProvider";
 
 type Props = { data: TeamDashboardData; onClose: () => void; onComplete: (user: AuthUser) => void };
 
 // Natural-language requests are converted into a reviewable plan. Nothing changes
 // in the team until the manager confirms the actions displayed in the chat.
 export default function TeamManagementAssistant({ data, onClose, onComplete }: Props) {
+  const { language } = useLanguage();
   const [instruction, setInstruction] = useState("");
   const [sentMessage, setSentMessage] = useState("");
   const [plan, setPlan] = useState<TeamCommandPlan | null>(null);
@@ -110,26 +112,37 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
 
   function resetChat() { setPlan(null); setResults(null); setSentMessage(""); setInstruction(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({}); }
 
-  const quickActions = [
-    { title: "إضافة عضو", hint: "أضف عضوًا أو أنشئ حسابًا جديدًا", prompt: "أضف عضوًا جديدًا إلى الفريق" },
-    { title: "إنشاء فريق", hint: "أنشئ فريقًا جديدًا", prompt: "أنشئ فريقًا جديدًا" },
-    { title: "تغيير الدور", hint: "اجعل عضوًا قائد فريق", prompt: "غيّر دور أحد الأعضاء إلى قائد فريق" },
-    { title: "إدارة الأعضاء", hint: "عرض أو إزالة عضو", prompt: "اعرض أعضاء الفريق" },
-    { title: "ملخص الفريق", hint: "عرض الأداء والتحليلات", prompt: "اعرض ملخص الفريق" },
-  ];
+  const isArabic = language === "ar";
+  const copy = isArabic ? {
+    title: "مساعد إدارة الفريق", online: "متصل الآن", greeting: "كيف أقدر أساعدك في إدارة الفريق؟", example: "اكتبي طلبك بالعربي أو الإنجليزي، مثل: «أنشئ فريق جودة وأضف سارة كقائدة فريق».", preparing: "جارٍ تجهيز مراجعة طلبك…", completed: "تم تنفيذ الطلب", more: "هل تحتاجين مساعدة أخرى؟", newTask: "مهمة جديدة", end: "إنهاء المحادثة", review: "راجعي الخطة ثم أكدي التنفيذ", placeholder: "اكتبي طلبك لإدارة الفريق…", quick: [
+      { title: "إضافة عضو", hint: "عضو أو حساب جديد", prompt: "أضف عضوًا جديدًا إلى الفريق" },
+      { title: "إنشاء فريق", hint: "فريق جديد", prompt: "أنشئ فريقًا جديدًا" },
+      { title: "تغيير الدور", hint: "تعيين قائد فريق", prompt: "غيّر دور أحد الأعضاء إلى قائد فريق" },
+      { title: "إدارة الأعضاء", hint: "عرض أو إزالة عضو", prompt: "اعرض أعضاء الفريق" },
+      { title: "ملخص الفريق", hint: "الأداء والتحليلات", prompt: "اعرض ملخص الفريق" },
+    ],
+  } : {
+    title: "Team assistant", online: "Online", greeting: "How can I help manage your team?", example: "Write in English or Arabic, for example: “Create a Quality team and add Sara as Team Leader.”", preparing: "Preparing your review…", completed: "Request completed", more: "Do you need anything else?", newTask: "New task", end: "End chat", review: "Review the plan, then confirm it.", placeholder: "Tell me what you need for the team…", quick: [
+      { title: "Add member", hint: "Member or new account", prompt: "Add a new member to the team" },
+      { title: "Create team", hint: "Start a new team", prompt: "Create a new team" },
+      { title: "Change role", hint: "Assign a Team Leader", prompt: "Change a member role to Team Leader" },
+      { title: "Manage members", hint: "View or remove a member", prompt: "List team members" },
+      { title: "Team summary", hint: "Performance and analyses", prompt: "Show the team summary" },
+    ],
+  };
 
   return (
     <div className="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-950/55 p-3" role="dialog" aria-modal="true">
-      <section className="flex h-[min(760px,92vh)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-[#f4f7fb] shadow-2xl">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
-          <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-full bg-blue-600 font-black text-white">M</span><div><h2 className="font-black text-[#071c33]">مساعد إدارة الفريق</h2><p className="flex items-center gap-1.5 text-xs text-slate-500"><span className="size-2 rounded-full bg-emerald-500" />متصل الآن</p></div></div>
+      <section className="flex h-[min(680px,88vh)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-[#f4f7fb] shadow-2xl">
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+          <div className="flex items-center gap-2.5"><span className="flex size-9 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">M</span><div><h2 className="text-sm font-black text-[#071c33]">{copy.title}</h2><p className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="size-1.5 rounded-full bg-emerald-500" />{copy.online}</p></div></div>
           <button type="button" onClick={onClose} aria-label="Close" className="flex size-9 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-600">×</button>
         </header>
 
-        <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          {!sentMessage && <><AssistantBubble><p className="font-bold text-[#071c33]">كيف أقدر أساعدك في إدارة الفريق؟</p><p className="mt-1 text-xs text-slate-500">اكتبي طلبك بالعربي أو الإنجليزي، مثل: «أنشئ فريق جودة وأضف سارة كقائدة فريق».</p></AssistantBubble><div className="ml-11 grid gap-2 sm:grid-cols-2">{quickActions.map((item) => <button key={item.title} type="button" disabled={busy} onClick={() => void review(item.prompt)} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-start shadow-sm transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60"><p className="text-sm font-bold text-[#071c33]">{item.title}<span className="ms-2 text-blue-600">←</span></p><p className="mt-0.5 text-xs text-slate-500">{item.hint}</p></button>)}</div></>}
+        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          {!sentMessage && <><AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble><div className="ms-10 grid gap-2 sm:grid-cols-2">{copy.quick.map((item) => <button key={item.title} type="button" disabled={busy} onClick={() => void review(item.prompt)} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-start shadow-sm transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60"><p className="text-sm font-bold text-[#071c33]">{item.title}<span className="ms-2 text-blue-600">←</span></p><p className="mt-0.5 text-[11px] text-slate-500">{item.hint}</p></button>)}</div></>}
           {sentMessage && <div className="flex justify-end"><div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm leading-6 text-white">{sentMessage}</div></div>}
-          {busy && !plan && <AssistantBubble><p className="text-slate-500">جارٍ تجهيز مراجعة طلبك…</p></AssistantBubble>}
+          {busy && !plan && <AssistantBubble><p className="text-slate-500">{copy.preparing}</p></AssistantBubble>}
 
           {plan && <AssistantBubble wide><p>{plan.summary}</p><div className="mt-3 space-y-2">{plan.actions.map((action, index) => (
             <article key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -144,16 +157,17 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
             </article>
           ))}</div>{!results && <div className="mt-3 flex justify-end gap-2"><button type="button" onClick={resetChat} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600">Edit</button><button type="button" disabled={busy} onClick={() => void execute()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:bg-slate-400">{busy ? "Working…" : "Confirm"}</button></div>}</AssistantBubble>}
 
-          {results && <AssistantBubble><p className="font-bold text-emerald-700">تم تنفيذ الطلب</p><ul className="mt-2 space-y-1.5">{results.map((result, index) => <li key={`${index}-${result}`}>• {result}</li>)}</ul><div className="mt-4 rounded-xl bg-slate-50 p-3"><p className="font-semibold text-[#071c33]">هل تحتاجين مساعدة أخرى؟</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={resetChat} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">مهمة جديدة</button><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600">إنهاء المحادثة</button></div></div></AssistantBubble>}
+          {results && <AssistantBubble><p className="font-bold text-emerald-700">{copy.completed}</p><ul className="mt-2 space-y-1.5">{results.map((result, index) => <li key={`${index}-${result}`}>• {result}</li>)}</ul><div className="mt-4 rounded-xl bg-slate-50 p-3"><p className="font-semibold text-[#071c33]">{copy.more}</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={resetChat} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">{copy.newTask}</button><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600">{copy.end}</button></div></div></AssistantBubble>}
           {error && <div className="ml-11 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         </div>
 
-        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-4"><div className="flex items-end gap-2 rounded-2xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(plan) || Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-10 flex-1 resize-none px-2 py-2 text-sm outline-none disabled:bg-white" placeholder={plan ? "راجعي الخطة ثم أكدي التنفيذ" : results ? "اختاري مهمة جديدة أو إنهاء المحادثة" : "اكتبي طلبك لإدارة الفريق…"} /><button type="submit" disabled={busy || Boolean(plan) || Boolean(results) || !instruction.trim()} aria-label="إرسال" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-lg text-white disabled:bg-slate-300">↑</button></div></form>
+        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-3"><div className="flex items-end gap-2 rounded-xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(plan) || Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-9 flex-1 resize-none px-2 py-1.5 text-sm outline-none disabled:bg-white" placeholder={plan ? copy.review : results ? copy.more : copy.placeholder} /><button type="submit" disabled={busy || Boolean(plan) || Boolean(results) || !instruction.trim()} aria-label="Send" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-base text-white disabled:bg-slate-300">↑</button></div></form>
       </section>
     </div>
   );
 }
 
 function AssistantBubble({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
-  return <div className="flex gap-3"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white">M</span><div className={`${wide ? "w-full max-w-[92%]" : "max-w-[86%]"} rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm leading-6 text-slate-600 shadow-sm`}>{children}</div></div>;
+  const { direction } = useLanguage();
+  return <div className="flex gap-2.5"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white">M</span><div className={`${wide ? "w-full max-w-[94%]" : "max-w-[88%]"} rounded-2xl ${direction === "rtl" ? "rounded-tr-sm" : "rounded-tl-sm"} bg-white px-4 py-3 text-sm leading-6 text-slate-600 shadow-sm`}>{children}</div></div>;
 }
