@@ -57,7 +57,7 @@ export default function OverallDashboard({ user, refreshKey, onOpen, onUpload, o
     { label: t("Needs review"), value: summary.needsReview, hint: t("Files with errors"), color: summary.needsReview ? "text-amber-500" : "text-emerald-600", icon: "◷" },
   ];
 
-  return <div className="space-y-5">
+  return <div className="meyaar-dashboard space-y-5">
     <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-white to-blue-50 p-4 shadow-sm">
       <div><p className="text-xs font-bold uppercase tracking-widest text-blue-600">{t(user.role !== "member" ? "Team overview" : "My workspace")}</p><h2 className="mt-1 text-2xl font-extrabold text-[#071c33]">{t("Welcome")}، {user.name}</h2></div>
       <button type="button" onClick={onTeam} className="rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-50">{t("Manage teams")}</button>

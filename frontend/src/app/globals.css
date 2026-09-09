@@ -250,6 +250,47 @@ textarea:focus-visible {
 .dark .meyaar-capabilities > div + div { border-color: rgb(19 190 157 / .22); }
 .dark .meyaar-capabilities svg { color: #13cda8; }
 
+.dark .meyaar-app-sidebar {
+  background: #0b2028;
+  border-color: #173c46;
+  color: #dbe7e9;
+  box-shadow: 2px 0 20px rgb(0 0 0 / .24);
+}
+.dark .meyaar-app-sidebar > div { border-color: #173c46; }
+.dark .meyaar-app-sidebar nav button { color: #a9bec4; }
+.dark .meyaar-app-sidebar nav button:hover { background: #103b3b; color: #65e0c3; }
+.dark .meyaar-app-sidebar nav button.bg-\[\#dcebe5\] { background: #0d4a42; color: #63e2c4; }
+.dark .meyaar-app-sidebar .text-\[\#465671\] { color: #a9bec4; }
+
+.dark .meyaar-app-header {
+  background-color: rgb(7 28 36 / .96);
+  background-image: linear-gradient(90deg, rgb(7 28 36 / .98), rgb(7 28 36 / .72)), url('/branding/meyaar-version-three-hero-dark.png');
+  background-position: center, right 42%;
+  background-size: cover, 720px auto;
+  border-color: #173c46;
+}
+
+.dark .meyaar-dashboard > section {
+  border-color: #244550;
+}
+.dark .meyaar-dashboard article,
+.dark .meyaar-dashboard > section.bg-white {
+  background: #0d222b;
+  border-color: #244550;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .12);
+}
+.dark .meyaar-dashboard > section:first-child {
+  background: linear-gradient(100deg, #0b302f, #0b252d);
+  border-color: #155149;
+}
+.dark .meyaar-dashboard .text-blue-600,
+.dark .meyaar-dashboard .text-blue-700,
+.dark .meyaar-dashboard .text-emerald-600 { color: #20d6ae; }
+.dark .meyaar-dashboard .bg-blue-500,
+.dark .meyaar-dashboard .bg-emerald-500 { background-color: #18cfa8; }
+.dark .meyaar-dashboard thead { background: #112a34; }
+.dark .meyaar-dashboard tbody { background: #0d222b; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
