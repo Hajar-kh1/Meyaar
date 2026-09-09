@@ -1,0 +1,206 @@
+@import "tailwindcss";
+
+/* Thmanyah Sans is used throughout the Arabic interface. */
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-light.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: url("/fonts/thmanyah-sans-black.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+}
+
+:root {
+  --background: #f7f7f4;
+  --foreground: #172a33;
+  --meyaar-ink: #173846;
+  --meyaar-accent: #2f6f89;
+  --meyaar-surface: #ffffff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Segoe UI", Tahoma, Arial, sans-serif;
+  --font-mono: var(--font-geist-mono);
+  --color-blue-50: #eef6f8;
+  --color-blue-100: #dcecf1;
+  --color-blue-200: #bfdbe4;
+  --color-blue-300: #91bdcb;
+  --color-blue-400: #629bb0;
+  --color-blue-500: #43839b;
+  --color-blue-600: #2f6f89;
+  --color-blue-700: #265b70;
+  --color-blue-800: #204b5c;
+  --color-blue-900: #193d4b;
+  --color-blue-950: #102b36;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+html[lang="ar"],
+html[lang="ar"] body {
+  font-family: "Thmanyah Sans", "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+/* Force inherited utility fonts to respect the Arabic typeface everywhere. */
+html[lang="ar"] body :where(*:not(code):not(pre):not(kbd):not(samp)) {
+  font-family: "Thmanyah Sans", "Segoe UI", Tahoma, Arial, sans-serif !important;
+}
+
+html[lang="ar"] :where(h1, h2, h3, h4, h5, h6, p, a, button, label, th, td) {
+  letter-spacing: 0 !important;
+}
+
+/* The landing artwork follows the reading direction without duplicating assets. */
+.meyaar-hero-image {
+  transform: scaleX(1);
+  transition: transform 500ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.meyaar-landing-header {
+  background: rgb(239 248 251 / .94);
+  border-color: rgb(191 219 228 / .75);
+}
+
+.meyaar-capabilities {
+  background: rgb(239 248 251 / .94);
+  border-color: rgb(191 219 228 / .75);
+}
+
+html[dir="rtl"] .meyaar-hero-image {
+  transform: scaleX(-1);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(.2, .8, .2, 1);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgb(67 131 155 / .25);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #bfdbe4;
+  color: #102b36;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #bfd0d6; border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; }
+
+/* Dark mode remaps the shared surface utilities used throughout the dashboard. */
+.dark {
+  --background: #0f2028;
+  --foreground: #e8f0f2;
+  color-scheme: dark;
+}
+
+.dark body,
+.dark .bg-background { background-color: #0f2028; color: #e8f0f2; }
+.dark .bg-white,
+.dark .bg-white\/95,
+.dark .bg-white\/90,
+.dark .bg-white\/85 { background-color: rgb(24 51 62 / .96); }
+.dark .bg-slate-50 { background-color: #17313c; }
+.dark .bg-slate-100 { background-color: #1d3a46; }
+.dark .bg-blue-50 { background-color: #193d4b; }
+.dark .bg-blue-100 { background-color: #204b5c; }
+.dark .from-white { --tw-gradient-from: #18333e; --tw-gradient-to: rgb(24 51 62 / 0); }
+.dark .to-blue-50 { --tw-gradient-to: #193d4b; }
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-\[\#071c33\] { color: #edf4f5; }
+.dark .text-slate-700,
+.dark .text-slate-600 { color: #bfd0d6; }
+.dark .text-slate-500,
+.dark .text-slate-400 { color: #91a9b2; }
+.dark .text-blue-900,
+.dark .text-blue-800 { color: #d5eaf0; }
+.dark .text-blue-700,
+.dark .text-blue-600 { color: #7fc0d3; }
+.dark .border-slate-300,
+.dark .border-slate-200,
+.dark .border-slate-200\/80 { border-color: #31515e; }
+.dark .border-blue-100,
+.dark .border-blue-200 { border-color: #3d6978; }
+.dark .border-dashed { border-color: #4d7180; }
+.dark input,
+.dark select,
+.dark textarea { color: #edf4f5; }
+.dark tr:hover { background-color: #1b3945; }
+.dark .shadow-sm,
+.dark .shadow-xl { box-shadow: 0 1px 3px rgb(0 0 0 / .24); }
+.dark input::placeholder,
+.dark textarea::placeholder { color: #829aa3; }
+.dark .meyaar-hero-overlay { background: linear-gradient(90deg, rgb(15 32 40 / .98) 0%, rgb(20 48 59 / .9) 34%, rgb(24 57 69 / .5) 58%, rgb(10 28 36 / .08) 78%); }
+.dark[dir="rtl"] .meyaar-hero-overlay { background: linear-gradient(270deg, rgb(15 32 40 / .98) 0%, rgb(20 48 59 / .9) 34%, rgb(24 57 69 / .5) 58%, rgb(10 28 36 / .08) 78%); }
+
+.dark .meyaar-capabilities {
+  background: rgb(20 48 59 / .94);
+  border-color: rgb(145 189 203 / .28);
+  box-shadow: 0 14px 38px rgb(0 0 0 / .28);
+}
+
+.dark .meyaar-capabilities p:first-child { color: #f2f7f8; }
+.dark .meyaar-capabilities p:last-child { color: #b7cbd2; }
+.dark .meyaar-capabilities svg { color: #72acc0; }
+.dark .meyaar-landing-header {
+  background: rgb(20 48 59 / .94);
+  border-color: rgb(98 155 176 / .3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

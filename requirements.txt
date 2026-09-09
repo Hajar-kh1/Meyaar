@@ -1,0 +1,55 @@
+# Core data science
+numpy
+pandas
+scikit-learn
+matplotlib
+jupyter
+
+# Geospatial
+geopandas
+shapely
+pyproj
+
+# ML
+xgboost
+torch
+transformers
+accelerate
+datasets
+
+# Vision / images
+Pillow
+rasterio
+reportlab
+pypdf
+
+# RAG / embeddings
+sentence-transformers
+faiss-cpu
+
+# App / utilities
+streamlit
+python-dotenv
+
+# Database / PostGIS
+SQLAlchemy
+psycopg2-binary
+geoalchemy2
+
+# Geospatial file I/O
+pyogrio
+pyarrow
+
+
+fastapi
+uvicorn[standard]
+python-multipart
+pytest
+httpx
+
+
+moondream
+
+langgraph>=1.2
+langchain-openai>=1.3
+langchain-core>=0.3
