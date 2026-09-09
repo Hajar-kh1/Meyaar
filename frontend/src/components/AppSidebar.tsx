@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { AuthUser } from "@/types/analysis";
 
-export type AppView = "dashboard" | "team" | "profile" | "upload" | "analysis" | "reports" | "history" | "assistant";
+export type AppView = "dashboard" | "team" | "profile" | "settings" | "upload" | "analysis" | "reports" | "history" | "assistant";
 
 interface AppSidebarProps {
   user: AuthUser;
@@ -49,7 +49,7 @@ export default function AppSidebar({ user, activeView, onNavigate, onLogout }: A
         ))}
       </nav>
       <div className="hidden shrink-0 border-t border-[#dfe5e1] px-3 py-4 lg:block">
-        <button type="button" onClick={() => onNavigate("profile")} className={`flex h-[42px] w-full items-center gap-2.5 rounded-lg px-3 text-[12px] font-medium ${activeView === "profile" ? "bg-[#dcebe5] text-[#075f50]" : "text-[#465671] hover:bg-[#edf7f3]"}`}><span className="size-4 [&>svg]:size-full [&>svg]:fill-none [&>svg]:stroke-current [&>svg]:stroke-[1.8]"><SidebarIcon name="settings" /></span>{language === "ar" ? "الإعدادات" : "Settings"}</button>
+        <button type="button" onClick={() => onNavigate("settings")} className={`flex h-[42px] w-full items-center gap-2.5 rounded-lg px-3 text-[12px] font-medium ${activeView === "settings" ? "bg-[#dcebe5] text-[#075f50]" : "text-[#465671] hover:bg-[#edf7f3]"}`}><span className="size-4 [&>svg]:size-full [&>svg]:fill-none [&>svg]:stroke-current [&>svg]:stroke-[1.8]"><SidebarIcon name="settings" /></span>{language === "ar" ? "الإعدادات" : "Settings"}</button>
         <button type="button" onClick={() => void onLogout()} className="flex h-[42px] w-full items-center gap-2.5 rounded-lg px-3 text-[12px] font-medium text-[#465671] hover:bg-red-50 hover:text-red-700"><span className="size-4 [&>svg]:size-full [&>svg]:fill-none [&>svg]:stroke-current [&>svg]:stroke-[1.8]"><SidebarIcon name="logout" /></span>{language === "ar" ? "تسجيل الخروج" : "Sign out"}</button>
         <button type="button" onClick={() => onNavigate("profile")} className="meyaar-sidebar-user mt-3 flex w-full items-center gap-2 border-t border-[#dfe5e1] px-1 pt-4 text-start"><span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#8fc6b6] bg-[#dcebe5] text-sm font-bold text-[#075f50]">{user.name.trim().charAt(0).toUpperCase()}</span><span className="min-w-0 flex-1"><strong className="block truncate text-[11px] font-bold">{user.name}</strong><small className="mt-0.5 block truncate text-[9px] text-slate-500">{role}</small></span><span className="text-lg text-slate-400 rtl:rotate-180">›</span></button>
       </div>

@@ -307,6 +307,9 @@ const translations: Record<string, string> = {
   "Understanding request...": "جارٍ فهم الطلب...",
   "Review command": "مراجعة الأمر",
   "Permanent action": "إجراء نهائي",
+  "My Profile": "الملف الشخصي",
+  "Review your personal information and account security.": "راجع معلوماتك الشخصية وبيانات حسابك.",
+  "Manage your password and account security.": "أدر كلمة المرور وأمان حسابك.",
   "This removes the team, its memberships, and all saved analyses belonging to it. This action cannot be undone.": "سيؤدي هذا إلى حذف الفريق وعضوياته وجميع تحليلاته المحفوظة، ولا يمكن التراجع عن هذا الإجراء.",
 };
 

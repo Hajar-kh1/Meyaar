@@ -19,6 +19,7 @@ import TeamDashboard from "@/components/TeamDashboard";
 import OverallDashboard from "@/components/OverallDashboard";
 import TeamOnboarding from "@/components/TeamOnboarding";
 import ProfilePanel from "@/components/ProfilePanel";
+import SettingsPanel from "@/components/SettingsPanel";
 import FirstLoginPassword from "@/components/FirstLoginPassword";
 import DisplayControls from "@/components/DisplayControls";
 import AnalysisWorkspace from "@/components/AnalysisWorkspace";
@@ -34,6 +35,7 @@ const viewTitles: Record<AppView, { title: string; description: string }> = {
   history: { title: "Saved Analyses", description: "Open validation results saved to your account." },
   team: { title: "Team Management", description: "Monitor your team members and their validation activity." },
   profile: { title: "My Profile", description: "Review your personal information and account security." },
+  settings: { title: "Settings", description: "Manage your password and account security." },
   assistant: { title: "Meyaar AI Assistant", description: "Ask grounded questions about the current validation run." },
 };
 
@@ -108,7 +110,7 @@ export default function Home() {
         <header className="meyaar-app-header sticky top-0 z-[1000] flex min-h-[72px] items-center justify-between gap-4 border-b border-slate-200/80 bg-white/95 px-5 shadow-[0_1px_12px_rgba(15,23,42,0.04)] backdrop-blur-xl lg:px-7"><div className="min-w-0"><h1 className="truncate text-xl font-extrabold tracking-tight text-[#071c33]">{t(heading.title)}</h1><p className="mt-0.5 hidden text-xs text-slate-500 sm:block">{t(heading.description)}</p></div><DisplayControls /></header>
         <main className="mx-auto w-full max-w-[1500px] p-3 sm:p-4 lg:p-5 xl:p-6">
           {view === "upload" && <div className="mx-auto max-w-4xl"><UploadPanel onResult={(newResult, file, mode, batch) => { setBatchUploads(batch); setShowBatchOverview(batch.length > 1); setResult(newResult); setSelectedErrorId(null); setSearch(""); setSeverity("all"); setErrorType("all"); setImageUrl((current) => { if (current) URL.revokeObjectURL(current); return mode === "image" ? URL.createObjectURL(file) : null; }); setView("analysis"); }} /></div>}
-          {view !== "dashboard" && view !== "upload" && view !== "history" && view !== "team" && view !== "profile" && !result && <EmptyState onUpload={() => setView("upload")} />}
+          {view !== "dashboard" && view !== "upload" && view !== "history" && view !== "team" && view !== "profile" && view !== "settings" && !result && <EmptyState onUpload={() => setView("upload")} />}
 
           {view === "dashboard" && <OverallDashboard user={user} refreshKey={result?.analysis_id} onUpload={() => setView("upload")} onTeam={() => setView("team")} onOpen={(savedResult) => { setResult(savedResult); setSelectedErrorId(null); setView("analysis"); }} />}
 
@@ -118,6 +120,7 @@ export default function Home() {
           {view === "history" && <AnalysisHistory showOwner={user.role === "manager"} onOpen={(savedResult) => { setResult(savedResult); setSelectedErrorId(null); setView("analysis"); }} />}
           {view === "team" && (user.role === "manager" || user.role === "leader" ? <TeamDashboard user={user} onTeamChange={(nextUser) => { setUser(nextUser); setResult(null); setView(nextUser.role === "manager" || nextUser.role === "leader" ? "team" : "dashboard"); }} /> : <TeamOnboarding embedded user={user} onReady={(nextUser) => { setUser(nextUser); setResult(null); setView("team"); }} />)}
           {view === "profile" && <ProfilePanel user={user} />}
+          {view === "settings" && <SettingsPanel />}
           {view === "assistant" && (vectorResult ? <AgentChat runId={vectorResult.run_id} embedded /> : result ? <section className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center"><h2 className="text-xl font-bold text-amber-950">Assistant requires a vector run</h2><p className="mt-2 text-sm text-amber-800">Upload vector data so the assistant can answer from stored validation results.</p></section> : null)}
         </main>
       </div>
