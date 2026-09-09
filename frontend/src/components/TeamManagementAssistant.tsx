@@ -36,6 +36,8 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   const [selectedManagedTeam, setSelectedManagedTeam] = useState<ManagedTeamMemberOverview | null>(null);
   const [listedMembers, setListedMembers] = useState<TeamDashboardData["members"] | null>(null);
   const [listening, setListening] = useState(false);
+  const [awaitingFollowUp, setAwaitingFollowUp] = useState(false);
+  const [conversationContext, setConversationContext] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
 
   function browserSpeak(text: string) {
@@ -114,9 +116,9 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     const message = (messageOverride ?? instruction).trim();
     if (!message) return;
     setInstruction("");
-    setBusy(true); setError(""); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null); setSentMessage(message);
+    setBusy(true); setError(""); setAwaitingFollowUp(false); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null); setSentMessage(message);
     try {
-      const interpreted = await interpretTeamCommands(message);
+      const interpreted = await interpretTeamCommands(message, conversationContext);
       const next = {
         ...interpreted,
         actions: interpreted.actions.map((action) => ({
@@ -197,6 +199,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         }
       }
       if (activeTeamId) activeUser = await activateTeam(activeTeamId);
+      setConversationContext((current) => [current, `User: ${sentMessage}`, `Completed: ${completed.join(" ")}`].filter(Boolean).join("\n").slice(-6000));
       setResults(completed); onComplete(activeUser);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The plan could not be completed.");
@@ -210,7 +213,13 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     finally { setBusy(false); }
   }
 
-  function resetChat() { setPlan(null); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null); setSentMessage(""); setInstruction(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({}); }
+  function resetChat() { continueConversation(); }
+
+  function continueConversation() {
+    setPlan(null); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null);
+    setInstruction(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({});
+    setAwaitingFollowUp(true);
+  }
 
   const pageIsArabic = language === "ar";
   const conversationIsArabic = sentMessage ? /[\u0600-\u06FF]/.test(sentMessage) : pageIsArabic;
@@ -245,6 +254,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           {!sentMessage && <AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble>}
           {sentMessage && <div className="flex justify-end"><div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm leading-6 text-white">{sentMessage}</div></div>}
           {busy && !plan && <AssistantBubble><p className="text-slate-500">{copy.preparing}</p></AssistantBubble>}
+          {awaitingFollowUp && <AssistantBubble><p className="font-semibold text-[#071c33]">{conversationIsArabic ? "أبشري، وش تبين أخدمك فيه بعد؟" : "Of course. What else can I help you with?"}</p></AssistantBubble>}
 
           {plan && <AssistantBubble wide><div className="flex items-start justify-between gap-2"><div><p className="font-semibold text-[#071c33]">{plan.reply ?? plan.summary}</p>{plan.reply && <p className="mt-1 text-xs text-slate-500">{plan.summary}</p>}</div><button type="button" onClick={() => speak(plan.reply ?? plan.summary)} aria-label={conversationIsArabic ? "استمع للرد" : "Listen to response"} className="shrink-0 rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700">🔊</button></div><div className="mt-3 space-y-2">{plan.actions.map((action, index) => (
             <article key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-3">

@@ -499,12 +499,12 @@ async def interpret_new_team_user(body: NewUserInterpretRequest, user: dict = De
     return await run_in_threadpool(_interpret_new_user, body.instruction)
 
 
-def _interpret_team_command_batch(instruction: str) -> dict:
+def _interpret_team_command_batch(instruction: str, context: str | None = None) -> dict:
     """Turn one natural-language request into an ordered, reviewable action plan."""
     is_arabic = bool(re.search(r"[\u0600-\u06FF]", instruction))
     llm = get_llm()
     if llm is not None:
-        prompt = """You are Meyaar's friendly Team Management Agent. Understand natural Arabic (including Saudi dialect) and English. Do not execute anything. Convert the request into strict JSON only: {"reply":"a warm, concise conversational reply in the user's language","summary":"short plan summary in the user's language","actions":[...]}. Each action must use add, remove, create_team, delete_team, change_role, list_members, or team_summary and include name, email, team_name, role, suggested_username. Keep the user's order and infer ordinary phrasing such as 'ضيف محمد' or 'خل سارة ليدر'. Never invent identity data: use null for every name, email, team name, or username not explicitly provided. For add with a name but no email, keep the name and null email so the application can search the database first. If matching accounts exist, the application will ask the user to choose; if not, it will request a personal email. Destructive or role-changing operations always require UI confirmation. Reply naturally, for example in Arabic: 'أبشر، لقيت لك الأسماء المطابقة. أي واحد تقصد؟' Never claim an action was executed. Request: """ + instruction
+        prompt = """You are Meyaar's friendly Team Management Agent. Understand natural Arabic (including Saudi dialect) and English. Continue in the language used by the user in this conversation. Use the previous conversation context to resolve follow-ups and pronouns, but do not repeat an already completed action. Do not execute anything. Convert the new request into strict JSON only: {"reply":"a warm, concise conversational reply in the user's language","summary":"short plan summary in the user's language","actions":[...]}. Each action must use add, remove, create_team, delete_team, change_role, list_members, or team_summary and include name, email, team_name, role, suggested_username. Keep the user's order and infer ordinary phrasing such as 'ضيف محمد' or 'خل سارة ليدر'. Never invent identity data: use null for every name, email, team name, or username not explicitly provided. For add with a name but no email, keep the name and null email so the application can search the database first. If matching accounts exist, the application will ask the user to choose; if not, it will request a personal email. Destructive or role-changing operations always require UI confirmation. Never claim an action was executed. Previous context: """ + (context or "None") + "\nNew request: " + instruction
         try:
             parsed = json.loads(_strip_json_fence(str(llm.invoke(prompt).content)))
             actions = parsed.get("actions") if isinstance(parsed, dict) else None
@@ -542,7 +542,7 @@ def _interpret_team_command_batch(instruction: str) -> dict:
 async def interpret_team_commands(body: TeamCommandBatchRequest, user: dict = Depends(current_user)):
     if user["role"] != "manager":
         raise HTTPException(status_code=403, detail="Only the team manager can manage team actions.")
-    return await run_in_threadpool(_interpret_team_command_batch, body.instruction)
+    return await run_in_threadpool(_interpret_team_command_batch, body.instruction, body.context)
 
 
 @app.post("/team/voice/transcribe")

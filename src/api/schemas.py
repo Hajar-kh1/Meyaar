@@ -158,6 +158,7 @@ class NewUserInterpretRequest(BaseModel):
 
 class TeamCommandBatchRequest(BaseModel):
     instruction: str = Field(min_length=3, max_length=3000)
+    context: str | None = Field(default=None, max_length=6000)
 
 
 class BatchReportRequest(BaseModel):
