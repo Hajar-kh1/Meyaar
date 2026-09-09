@@ -116,10 +116,44 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     return matches.length ? matches : available;
   }
 
+  async function handlePendingReply(message: string) {
+    if (!plan) return false;
+    const normalized = message.trim().toLowerCase();
+    setSentMessage(message); setInstruction(""); setAwaitingFollowUp(false); setError("");
+    if (/^(موافق|وافق|نفذ|نفّذ|تمام نفذ|yes|confirm|approve|go ahead)$/i.test(normalized)) {
+      await execute();
+      return true;
+    }
+    const addIndex = plan.actions.findIndex((action) => action.action === "add");
+    if (addIndex >= 0) {
+      const matches = directoryMatches[addIndex] ?? [];
+      const selectedByNumber = /^\d+$/.test(normalized) ? matches[Number(normalized) - 1] : undefined;
+      const selectedByText = matches.find((entry) => [entry.name, entry.email ?? "", entry.username ?? ""].some((value) => value.toLowerCase() === normalized));
+      const selected = selectedByNumber ?? selectedByText;
+      if (selected) {
+        setExistingSelections({ ...existingSelections, [addIndex]: selected.user_id });
+        setPlan({ ...plan, reply: conversationIsArabic ? `تمام، تقصدين ${selected.name}. بضيفها ك${plan.actions[addIndex].role === "leader" ? "قائدة فريق" : "عضو"}. اكتبي «موافق» للتنفيذ.` : `Got it — you mean ${selected.name}. I’ll add this account as ${plan.actions[addIndex].role}. Type “confirm” to proceed.` });
+        return true;
+      }
+      const email = message.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]?.toLowerCase();
+      if (email) {
+        const actions = plan.actions.map((action, index) => index === addIndex ? { ...action, email } : action);
+        const action = actions[addIndex];
+        const username = action.suggested_username || action.name?.toLowerCase().replace(/\s+/g, ".") || "user";
+        setPlan({ ...plan, actions, reply: conversationIsArabic ? `ممتاز، بإنشئ حساب ${action.name} باسم مستخدم ${username}، ودورها ${action.role === "leader" ? "قائدة فريق" : "عضو"}، وبرسل بيانات الدخول إلى ${email}. اكتبي «موافق» للتنفيذ.` : `Great. I’ll create ${action.name} with username ${username} as ${action.role}, and send the credentials to ${email}. Type “confirm” to proceed.` });
+        return true;
+      }
+      setPlan({ ...plan, reply: conversationIsArabic ? "أحتاج البريد الشخصي بصيغة صحيحة، مثل name@example.com." : "Please send a valid personal email, such as name@example.com." });
+      return true;
+    }
+    return false;
+  }
+
   async function review(messageOverride?: string) {
     const message = (messageOverride ?? instruction).trim();
     if (!message) return;
     setInstruction("");
+    if (await handlePendingReply(message)) return;
     setBusy(true); setError(""); setAwaitingFollowUp(false); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null); setSentMessage(message);
     try {
       const interpreted = await interpretTeamCommands(message, conversationContext);
@@ -141,9 +175,24 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         try { return [index, await searchUserDirectory(action.name)] as const; }
         catch { return [index, []] as const; }
       }));
-      setDirectoryMatches(Object.fromEntries(searches));
+      const matchesByIndex = Object.fromEntries(searches) as Record<number, UserDirectoryEntry[]>;
+      setDirectoryMatches(matchesByIndex);
       setExistingSelections({});
       setCreateNew({});
+      const unresolvedAddIndex = next.actions.findIndex((action) => action.action === "add" && !action.email);
+      if (unresolvedAddIndex >= 0) {
+        const action = next.actions[unresolvedAddIndex];
+        const matches = matchesByIndex[unresolvedAddIndex] ?? [];
+        if (matches.length) {
+          const choices = matches.map((entry, index) => `${index + 1}) ${entry.name} — ${entry.email || entry.username}`).join("\n");
+          next.reply = /[\u0600-\u06FF]/.test(message) ? `لقيت أكثر من حساب قريب من اسم ${action.name}. أي واحد تقصدين؟ اكتبي الرقم:\n${choices}` : `I found matching accounts for ${action.name}. Which one do you mean? Reply with the number:\n${choices}`;
+        } else {
+          const username = action.suggested_username || action.name?.toLowerCase().replace(/\s+/g, ".") || "user";
+          next.reply = /[\u0600-\u06FF]/.test(message) ? `تمام، بجهز حساب ${action.name} باسم مستخدم ${username} ودورها ${action.role === "leader" ? "قائدة فريق" : "عضو"}. أرسلي بريدها الشخصي عشان أرسل لها بيانات الدخول.` : `I’ll prepare ${action.name} with username ${username} as ${action.role}. Please send their personal email so I can deliver the credentials.`;
+        }
+      } else {
+        next.reply = /[\u0600-\u06FF]/.test(message) ? `${next.reply} اكتبي «موافق» للتنفيذ.` : `${next.reply} Type “confirm” to proceed.`;
+      }
       setMemberSelections(selections); setPlan(next);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The assistant could not understand the request.");
@@ -260,7 +309,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           {busy && !plan && <AssistantBubble><p className="text-slate-500">{copy.preparing}</p></AssistantBubble>}
           {awaitingFollowUp && <AssistantBubble><p className="font-semibold text-[#071c33]">{conversationIsArabic ? ["وش حابة أسوي لك بعد؟", "أنا معك، وش الطلب التالي؟", "تم، هل فيه شيء ثاني أساعدك فيه؟"][sentMessage.length % 3] : ["What else can I help you with?", "I’m ready for your next request.", "Done. Is there anything else you need?"][sentMessage.length % 3]}</p></AssistantBubble>}
 
-          {plan && <AssistantBubble wide><div className="flex items-start justify-between gap-2"><div><p className="font-semibold text-[#071c33]">{plan.reply ?? plan.summary}</p>{plan.reply && <p className="mt-1 text-xs text-slate-500">{plan.summary}</p>}</div><button type="button" onClick={() => speak(plan.reply ?? plan.summary)} aria-label={conversationIsArabic ? "استمع للرد" : "Listen to response"} className="shrink-0 rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700">🔊</button></div><div className="mt-3 space-y-2">{plan.actions.map((action, index) => (
+          {plan && <AssistantBubble wide><div className="flex items-start justify-between gap-2"><div><p className="whitespace-pre-line font-semibold text-[#071c33]">{plan.reply ?? plan.summary}</p></div><button type="button" onClick={() => speak(plan.reply ?? plan.summary)} aria-label={conversationIsArabic ? "استمع للرد" : "Listen to response"} className="shrink-0 rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700">🔊</button></div><div className="hidden">{plan.actions.map((action, index) => (
             <article key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
               <div className="flex items-center gap-2"><span className="flex size-6 items-center justify-center rounded-full bg-blue-100 text-xs font-black text-blue-700">{index + 1}</span><h3 className="text-sm font-bold capitalize">{conversationIsArabic ? ({ add: "إضافة عضو", remove: "إزالة عضو", create_team: "إنشاء فريق", delete_team: "حذف الفريق", change_role: "تغيير الدور", list_members: "عرض الأعضاء", team_summary: "ملخص الفريق" } as Record<string, string>)[action.action] : action.action.replaceAll("_", " ")}</h3></div>
               {action.action === "create_team" && <input value={action.team_name ?? ""} onChange={(event) => updateAction(index, { team_name: event.target.value })} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder={conversationIsArabic ? "اسم الفريق" : "Team name"} />}
@@ -271,13 +320,13 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
               {(action.action === "remove" || action.action === "change_role") && <div className="mt-2 grid gap-2 sm:grid-cols-2"><select required value={memberSelections[index] ?? ""} onChange={(event) => setMemberSelections({ ...memberSelections, [index]: event.target.value })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="">{conversationIsArabic ? "اختاري العضو" : "Choose member"}</option>{candidates(action).map((member) => <option key={member.user_id} value={member.user_id}>{member.name} — {member.email}</option>)}</select>{action.action === "change_role" && <select value={action.role} onChange={(event) => updateAction(index, { role: event.target.value as "member" | "leader" })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="member">{conversationIsArabic ? "عضو" : "Member"}</option><option value="leader">{conversationIsArabic ? "قائد فريق" : "Team Leader"}</option></select>}</div>}
               {action.action === "delete_team" && <div className="mt-2"><p className="text-xs font-semibold text-red-600">{conversationIsArabic ? "سيؤدي هذا إلى حذف الفريق النشط وتحليلاته نهائيًا." : "This permanently deletes the active team and its analyses."}</p><input value={deleteConfirmations[index] ?? ""} onChange={(event) => setDeleteConfirmations({ ...deleteConfirmations, [index]: event.target.value })} className="mt-2 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm" placeholder={conversationIsArabic ? `اكتبي ${data.team.name} للتأكيد` : `Type ${data.team.name} to confirm`} /></div>}
             </article>
-          ))}</div>{!results && <div className="mt-3 flex justify-end gap-2"><button type="button" onClick={resetChat} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600">{conversationIsArabic ? "تعديل" : "Edit"}</button><button type="button" disabled={busy} onClick={() => void execute()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:bg-slate-400">{busy ? (conversationIsArabic ? "جارٍ التنفيذ…" : "Working…") : (conversationIsArabic ? "تأكيد" : "Confirm")}</button></div>}</AssistantBubble>}
+          ))}</div></AssistantBubble>}
 
           {results && <AssistantBubble><div className="flex items-center justify-between gap-2"><p className="font-bold text-emerald-700">{copy.completed}</p><button type="button" onClick={() => speak([copy.completed, ...results].join(". "))} aria-label={isArabic ? "استمع للنتيجة" : "Listen to result"} className="rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700">🔊</button></div><ul className="mt-2 space-y-1.5">{results.map((result, index) => <li key={`${index}-${result}`}>• {result}</li>)}</ul>{listedMembers && <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white"><div className="border-b border-slate-100 px-3 py-2 text-xs font-bold text-[#071c33]">{isArabic ? "أعضاء الفريق" : "Team members"}</div>{listedMembers.map((member) => <div key={member.user_id} className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5 last:border-0"><div className="min-w-0"><p className="truncate text-xs font-bold text-[#071c33]">{member.name}</p><p className="truncate text-[11px] text-slate-500">{member.email || "Username account"}</p></div><div className="shrink-0 text-end"><span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">{member.role === "leader" ? "Team Leader" : member.role}</span><p className={`mt-1 text-[10px] font-semibold ${member.is_online ? "text-emerald-600" : "text-slate-400"}`}>{member.is_online ? (isArabic ? "متصل" : "Online") : (isArabic ? "غير متصل" : "Offline")}</p></div></div>)}</div>}{managedTeams && <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white"><div className="border-b border-slate-100 px-3 py-2 text-xs font-bold text-[#071c33]">{isArabic ? "الفرق التابعة لك — اختاري فريقًا" : "Your teams — select one"}</div>{managedTeams.length ? managedTeams.map((team) => <button key={team.team_id} type="button" disabled={busy} onClick={() => void openManagedTeam(team.team_id)} className={`block w-full border-b border-slate-100 px-3 py-2.5 text-start last:border-0 hover:bg-blue-50 disabled:opacity-60 ${selectedManagedTeam?.team.team_id === team.team_id ? "bg-blue-50" : ""}`}><span className="flex items-center justify-between gap-2"><strong className="text-xs text-[#071c33]">{team.name}</strong><span className="text-[11px] font-bold text-blue-700">{team.average_compliance ?? "—"}%</span></span><span className="mt-1 block text-[11px] text-slate-500">{team.members_count} {isArabic ? "أعضاء" : "members"} · {team.analyses_count} {isArabic ? "تحليلات" : "analyses"} · {team.total_errors} {isArabic ? "أخطاء" : "errors"}</span></button>) : <p className="px-3 py-3 text-xs text-slate-500">{isArabic ? "لا توجد فرق مملوكة." : "No managed teams found."}</p>}</div>}{selectedManagedTeam && <div className="mt-3 overflow-hidden rounded-xl border border-blue-200 bg-white"><div className="border-b border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800">{selectedManagedTeam.team.name} · {isArabic ? "ملخص الأعضاء" : "Member activity"}</div>{selectedManagedTeam.members.map((member) => <div key={member.user_id} className="border-b border-slate-100 px-3 py-2.5 last:border-0"><div className="flex items-center justify-between gap-2"><div className="min-w-0"><p className="truncate text-xs font-bold text-[#071c33]">{member.name}</p><p className="truncate text-[11px] text-slate-500">{member.email || "Username account"}</p></div><span className={`size-2 rounded-full ${member.is_online ? "bg-emerald-500" : "bg-slate-300"}`} title={member.is_online ? "Online" : "Offline"} /></div><p className="mt-1.5 text-[11px] text-slate-600"><bdi>{member.analyses_count}</bdi> {isArabic ? "تحليلات" : "analyses"} · <bdi>{member.total_errors}</bdi> {isArabic ? "أخطاء" : "errors"} · <bdi>{member.average_compliance ?? "—"}%</bdi> {isArabic ? "التزام" : "compliance"}</p></div>)}</div>}<div className="mt-4 rounded-xl bg-slate-50 p-3"><p className="font-semibold text-[#071c33]">{copy.more}</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={resetChat} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">{copy.newTask}</button><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600">{copy.end}</button></div></div></AssistantBubble>}
           {error && <div className="ml-11 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         </div>
 
-        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-3"><div className="flex items-end gap-2 rounded-xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(plan) || Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-9 flex-1 resize-none px-2 py-1.5 text-sm outline-none disabled:bg-white" placeholder={plan ? copy.review : results ? copy.more : copy.placeholder} /><button type="button" onClick={() => void listen()} disabled={Boolean(plan) || Boolean(results)} aria-label={listening ? (isArabic ? "إيقاف التسجيل" : "Stop recording") : (isArabic ? "إدخال صوتي تلقائي اللغة" : "Automatic-language voice input")} className={`flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 ${listening ? "animate-pulse bg-red-100 text-red-700" : "bg-slate-50"}`}>{listening ? "■" : "🎙️"}</button><button type="submit" disabled={busy || Boolean(plan) || Boolean(results) || !instruction.trim()} aria-label="Send" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-base text-white disabled:bg-slate-300">↑</button></div></form>
+        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-3"><div className="flex items-end gap-2 rounded-xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-9 flex-1 resize-none px-2 py-1.5 text-sm outline-none disabled:bg-white" placeholder={results ? copy.more : (conversationIsArabic ? "اكتبي ردك…" : "Type your reply…")} /><button type="button" onClick={() => void listen()} disabled={Boolean(results)} aria-label={listening ? (isArabic ? "إيقاف التسجيل" : "Stop recording") : (isArabic ? "إدخال صوتي تلقائي اللغة" : "Automatic-language voice input")} className={`flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 ${listening ? "animate-pulse bg-red-100 text-red-700" : "bg-slate-50"}`}>{listening ? "■" : "🎙️"}</button><button type="submit" disabled={busy || Boolean(results) || !instruction.trim()} aria-label="Send" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-base text-white disabled:bg-slate-300">↑</button></div></form>
       </section>
     </div>
   );
