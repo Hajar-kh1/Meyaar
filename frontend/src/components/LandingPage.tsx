@@ -36,7 +36,8 @@ export default function LandingPage({ onStart }: LandingPageProps) {
       </header>
 
       <section id="platform" className="relative mx-auto min-h-[620px] max-w-[1600px] overflow-hidden bg-[#dfeeff] sm:h-[100svh] sm:min-h-[500px]">
-        <Image src="/branding/meyaar-version-three-hero.png" alt={language === "ar" ? "مشهد مدينة الرياض الذكية" : "Riyadh smart city skyline"} fill priority sizes="(max-width: 1280px) 100vw, 1280px" unoptimized className="meyaar-hero-image object-cover object-center" />
+        <Image src="/branding/meyaar-version-three-hero.png" alt={language === "ar" ? "مشهد مدينة الرياض الذكية" : "Riyadh smart city skyline"} fill priority sizes="(max-width: 1280px) 100vw, 1280px" unoptimized className="meyaar-hero-image meyaar-hero-light object-cover object-center" />
+        <Image src="/branding/meyaar-version-three-hero-dark.png" alt={language === "ar" ? "مشهد ليلي لمدينة الرياض الذكية" : "Riyadh smart city skyline at night"} fill priority sizes="(max-width: 1280px) 100vw, 1280px" unoptimized className="meyaar-hero-image meyaar-hero-dark object-cover object-center" />
         <div className="meyaar-third-hero-overlay absolute inset-0 bg-[linear-gradient(90deg,rgba(250,248,242,.34)_0%,rgba(250,248,242,.12)_45%,rgba(250,248,242,0)_72%)] rtl:bg-[linear-gradient(270deg,rgba(250,248,242,.34)_0%,rgba(250,248,242,.12)_45%,rgba(250,248,242,0)_72%)]" />
 
         <div className="relative z-10 grid min-h-[620px] items-center px-7 pb-52 pt-8 sm:h-full sm:min-h-0 sm:px-12 sm:pb-28 lg:px-16 xl:px-20">
