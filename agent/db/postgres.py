@@ -476,3 +476,46 @@ class PostgresRepository(Repository):
         counts = d.get("counts")
         d["counts"] = json.loads(counts) if isinstance(counts, str) else (counts or {})
         return d
+
+    # ── chat memory (conversation turns per user + run) ───────────────────
+    def save_chat_turn(self, run_id: str, user_key: str, question: str,
+                       answer: str, sources: Optional[list[str]] = None) -> bool:
+        """Insert one turn into agent_chat_messages. Raises if the table is
+        absent (caller degrades to stateless chat on older DBs)."""
+        sql = """
+        INSERT INTO public.agent_chat_messages (run_id, user_key, question, answer, sources)
+        VALUES (:run_id, :user_key, :question, :answer, :sources)
+        """
+        with self.engine.begin() as conn:
+            conn.execute(text(sql), {
+                "run_id": run_id,
+                "user_key": user_key,
+                "question": question,
+                "answer": answer,
+                "sources": json.dumps(sources or []),
+            })
+        return True
+
+    def fetch_chat_history(self, run_id: str, user_key: str,
+                           limit: int = 6) -> list[dict]:
+        """Return the last `limit` turns for (run_id, user_key), oldest
+        first. Raises if the table is absent (caller degrades gracefully)."""
+        sql = """
+        SELECT question, answer, sources, created_at::text AS created_at
+        FROM public.agent_chat_messages
+        WHERE run_id = :run_id AND user_key = :user_key
+        ORDER BY chat_id DESC
+        LIMIT :limit
+        """
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                text(sql),
+                {"run_id": run_id, "user_key": user_key, "limit": limit},
+            ).mappings().all()
+        out = []
+        for r in reversed(rows):           # back to chronological order
+            d = dict(r)
+            src = d.get("sources")
+            d["sources"] = json.loads(src) if isinstance(src, str) else (src or [])
+            out.append(d)
+        return out

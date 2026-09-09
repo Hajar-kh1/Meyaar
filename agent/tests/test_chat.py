@@ -123,3 +123,106 @@ def test_malformed_llm_answer_raises(repo):
     stub = StubLLM("not json at all")
     with pytest.raises(RuntimeError, match="did not return a valid answer"):
         answer_question(repo, RUN_ID, "hi", llm=stub)
+
+
+# ── conversation memory ─────────────────────────────────────────────────
+
+def _recording_llm(prompts: list[str], answers: list[str]):
+    """LLM fake that records every prompt and cycles canned answers."""
+    class RecordingLLM:
+        def __init__(self):
+            self._i = 0
+
+        def invoke(self, prompt):
+            prompts.append(prompt)
+            answer = answers[self._i % len(answers)]
+            self._i += 1
+            return type("R", (), {"content": json.dumps({
+                "answer": answer, "sources": []})})()
+
+    return RecordingLLM()
+
+
+def test_chat_memory_replays_prior_turns_and_persists(repo):
+    _seed(repo)
+    prompts: list[str] = []
+    llm = _recording_llm(prompts, ["Critical errors first.", "As I said, start with critical errors."])
+    first = answer_question(repo, RUN_ID, "which errors are critical?", llm=llm, user_key="user-1")
+    second = answer_question(repo, RUN_ID, "and the first one you mentioned?", llm=llm, user_key="user-1")
+
+    # First prompt has no history yet; the second replays the first turn.
+    # (The system prompt mentions 'Conversation so far'; the injected block
+    # uses the distinct marker 'Conversation history'.)
+    assert "Conversation history" not in prompts[0]
+    assert "Conversation history" in prompts[1]
+    assert "which errors are critical?" in prompts[1]
+    assert "Critical errors first." in prompts[1]
+
+    # The new turn was persisted, oldest first, in conversation order.
+    history = repo.fetch_chat_history(RUN_ID, "user-1")
+    assert len(history) == 2
+    assert history[0]["question"] == "which errors are critical?"
+    assert history[0]["answer"] == "Critical errors first."
+    assert history[1]["question"] == "and the first one you mentioned?"
+    assert history[1]["answer"] == "As I said, start with critical errors."
+    assert second["answer"] == "As I said, start with critical errors."
+
+
+def test_chat_memory_is_scoped_per_user(repo):
+    _seed(repo)
+    prompts: list[str] = []
+    llm = _recording_llm(prompts, ["For user one.", "For user two."])
+    answer_question(repo, RUN_ID, "question from user one", llm=llm, user_key="user-1")
+    answer_question(repo, RUN_ID, "question from user two", llm=llm, user_key="user-2")
+
+    # Each user sees only their own thread...
+    assert len(repo.fetch_chat_history(RUN_ID, "user-1")) == 1
+    assert len(repo.fetch_chat_history(RUN_ID, "user-2")) == 1
+    # ...and user-2's second prompt does not leak user-1's turn.
+    assert "question from user one" not in prompts[1]
+    assert "question from user two" in prompts[1]
+
+
+def test_chat_memory_best_effort_when_table_missing(repo):
+    _seed(repo)
+    original_save = repo.save_chat_turn
+    original_fetch = repo.fetch_chat_history
+
+    def missing(*args, **kwargs):
+        raise RuntimeError("relation agent_chat_messages does not exist")
+
+    repo.save_chat_turn = missing
+    repo.fetch_chat_history = missing
+    try:
+        stub = StubLLM(json.dumps({"answer": "still answers", "sources": []}))
+        out = answer_question(repo, RUN_ID, "hi", llm=stub, user_key="user-1")
+        assert out["answer"] == "still answers"   # stateless fallback
+    finally:
+        repo.save_chat_turn = original_save
+        repo.fetch_chat_history = original_fetch
+
+
+def test_chat_memory_keeps_only_recent_turns(repo):
+    _seed(repo)
+    prompts: list[str] = []
+    llm = _recording_llm(prompts, ["ok"])
+    for i in range(1, 9):                          # q1..q8 stored
+        answer_question(repo, RUN_ID, f"question number {i}", llm=llm, user_key="user-1")
+    # Everything is stored; the default read window is the last 6.
+    assert len(repo.fetch_chat_history(RUN_ID, "user-1", limit=100)) == 8
+    assert len(repo.fetch_chat_history(RUN_ID, "user-1")) == 6
+    answer_question(repo, RUN_ID, "question number 9", llm=llm, user_key="user-1")
+
+    last_prompt = prompts[-1]
+    assert "Conversation history" in last_prompt
+    assert "question number 8" in last_prompt       # recent turn present
+    assert "question number 1" not in last_prompt   # trimmed beyond the window
+    assert "question number 2" not in last_prompt
+
+
+def test_failed_answer_is_not_persisted(repo):
+    _seed(repo)
+    stub = StubLLM("not json at all")
+    with pytest.raises(RuntimeError):
+        answer_question(repo, RUN_ID, "hi", llm=stub, user_key="user-1")
+    assert repo.fetch_chat_history(RUN_ID, "user-1") == []

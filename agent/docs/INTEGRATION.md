@@ -12,11 +12,13 @@ Owner of this layer: Person 1 (AI Agent & Error Analysis). Code: `agent/`.
 
 - **It reads** `public.validation_results` (produced by the PostGIS rule
   engine: BLD001-004, RD001-005, GIS001-005) — read-only, guarded.
-- **It writes three of its OWN tables** (`agent/schema/*.sql`):
+- **It writes four of its OWN tables** (`agent/schema/*.sql`):
   - `agent_error_analysis` — interpretation per error
   - `agent_remediation_actions` — what the agent did about each error
     (auto-fixed / queued for human / no action) + audit
   - `agent_run_summaries` — one executive narrative per run
+  - `agent_chat_messages` — chat conversation turns per (run, user);
+    lets follow-up questions keep context (conversation memory)
 - **One whitelisted mutation** on source layers: `apply_geometry_repair`
   (transactional `ST_MakeValid`) — ONLY for policy-approved rules
   (BLD003/RD004 invalid geometry). No other write ever touches your tables.
@@ -53,6 +55,9 @@ agent analyze(run_id) ──writes──►  agent_error_analysis (idempotent up
 GET analysis(run_id)     ──returns──►  summary (incl. narrative) + analyses
 GET remediation(run_id)  ──returns──►  audit: what was auto-fixed / queued
 POST chat(run_id)        ──answers──►  grounded text + source ids
+                                        + stores the turn in agent_chat_messages
+                                        (per user) so the next question can
+                                        refer back to this one
 ```
 
 - Re-analyzing the same run is safe (upsert on `run_id + result_id`).
@@ -176,7 +181,7 @@ Shape (full live sample in `agent/docs/_sample_response.json`):
     "human_review_required": false,
     "related_features": [],
     "insufficient_context": false,
-    "agent_model": "minimax/minimax-m3:free"
+    "agent_model": "deepseek-chat"
   }]
 }
 ```
@@ -197,7 +202,7 @@ Record shape (one per error, idempotent upsert):
   "reason": "…why auto-fix was (not) performed…",
   "recommended_action": "Provide the missing road geometry from the authoritative source…",
   "before_state": {}, "after_state": {},
-  "agent_model": "minimax/minimax-m3:free",
+  "agent_model": "deepseek-chat",
   "human_review_required": true,
   "executed_at": "…" }
 ```
@@ -247,6 +252,14 @@ curl -X POST http://127.0.0.1:8000/api/validation/316525f7-a7e3-43bd-81a5-7f4423
 ```
 `sources` are already filtered to ids that exist in the run — safe to render
 as chips and link to the map.
+
+**Conversation memory:** the request body stays `{"question": "..."}` — the
+backend scopes the conversation to the authenticated user automatically
+(`user_id` from the auth layer; the CLI uses `user_key="cli"`). Each turn is
+persisted to `agent_chat_messages`, and the last few turns are replayed into
+the next prompt, so follow-ups ("and the first error I asked about?") keep
+their context. The chat degrades to stateless if the memory table has not
+been created yet (no error, just no continuity). No frontend change required.
 
 ---
 
@@ -321,15 +334,16 @@ Chat UI reference implementation: `agent/api/static/index.html` (no build step).
 |---|---|---|
 | `MEYAAR_DATABASE_URL` | postgresql+psycopg2://postgres@localhost:5432/meyaar_db | DB for reads + agent table writes |
 | `MEYAAR_LLM_API_KEY` | (empty) | enables LLM explanations/chat (any OpenAI-compatible: OpenAI/DeepSeek/OpenRouter) |
-| `MEYAAR_LLM_BASE_URL` / `MEYAAR_LLM_MODEL` | https://openrouter.ai/api/v1 / minimax/minimax-m3:free | LLM endpoint + model |
+| `MEYAAR_LLM_BASE_URL` / `MEYAAR_LLM_MODEL` | https://api.deepseek.com/v1 / deepseek-chat | LLM endpoint + model (team's current choice — DeepSeek's cheapest model; any OpenAI-compatible provider works) |
 | `MEYAAR_ALLOW_LLM` | true | set false to force deterministic template (same JSON) |
 | `MEYAAR_TTS_ENGINE` | macos | CLI chat `--speak` TTS (macos/none) |
 
-DB access for the agent tables (run all three against meyaar_db once):
+DB access for the agent tables (run all four against meyaar_db once):
 ```sql
 CREATE TABLE public.agent_error_analysis …          -- agent/schema/agent_error_analysis.sql
 CREATE TABLE public.agent_remediation_actions …     -- agent/schema/agent_remediation_actions.sql
 CREATE TABLE public.agent_run_summaries …           -- agent/schema/agent_run_summaries.sql
+CREATE TABLE public.agent_chat_messages …           -- agent/schema/agent_chat_messages.sql
 ```
 
 ---

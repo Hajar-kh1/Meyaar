@@ -120,10 +120,11 @@ agent/
 ├── graph/       LangGraph: state, nodes, builder
 ├── remediation/ deterministic policy + decision service (auto_fix / review)
 ├── api/         FastAPI router + standalone app + openapi.json contract
-├── chat.py      grounded chat service (text + sources)
+├── chat.py      grounded chat service (text + sources + conversation
+│                memory — per-user turn history replayed into the prompt)
 ├── voice.py     thin TTS/STT integration (macOS say + browser APIs)
 ├── schema/      agent_error_analysis.sql + agent_remediation_actions.sql
-│                + agent_run_summaries.sql (DDL)
+│                + agent_run_summaries.sql + agent_chat_messages.sql (DDL)
 ├── cli.py       terminal runner
 └── tests/       fixtures + rule/tool/graph/API/chat/voice/remediation tests
 ```
@@ -141,6 +142,7 @@ live response sample `docs/_sample_response.json`.
 psql -d meyaar_db -f agent/schema/agent_error_analysis.sql
 psql -d meyaar_db -f agent/schema/agent_remediation_actions.sql
 psql -d meyaar_db -f agent/schema/agent_run_summaries.sql
+psql -d meyaar_db -f agent/schema/agent_chat_messages.sql
 
 # 2. connection settings (defaults match src/insertion/database.py)
 cp agent/.env.example agent/.env   # edit MEYAAR_DATABASE_URL if needed
@@ -166,6 +168,9 @@ agent/.venv/bin/uvicorn agent.api.app:app --reload
 #   POST /api/validation/{run_id}/chat        {"question": "why is BLD_102 flagged?"}
 
 # Chat about a run's engine results (needs MEYAAR_LLM_API_KEY):
+#   chat has conversation memory — every (user, run) keeps its own thread of
+#   the last few Q/A turns, so follow-ups ("and the first error I asked
+#   about?") keep context. Same behaviour in the API and the CLI.
 agent/.venv/bin/python -m agent.cli chat <run_id>                    # interactive REPL
 agent/.venv/bin/python -m agent.cli chat <run_id> --ask "What should I fix first?"
 agent/.venv/bin/python -m agent.cli chat <run_id> --ask "..." --speak   # read answer aloud (macOS say)
@@ -189,11 +194,13 @@ runs fully deterministically — same JSON schema, zero API calls, CI-safe.
 
 ```bash
 agent/.venv/bin/python -m pytest agent/tests -q
-# 96 tests: registry semantics for all 13 rules, tool + SQL-guard behaviour,
+# 102 tests: registry semantics for all 13 rules, tool + SQL-guard behaviour,
 # full-run analysis, heuristic classification, missing context,
 # DB failures, malformed/lying LLM output, API endpoints, spatial
-# measurements, remediation policy + the 9 trainer scenarios, and the
-# persisted per-run executive narrative.
+# measurements, remediation policy + the 9 trainer scenarios, the
+# persisted per-run executive narrative, and conversation memory
+# (per-user turn persistence, replay into the prompt, trimming to the
+# recent window, best-effort fallback when the memory table is missing).
 ```
 
 ## Reliability guarantees
