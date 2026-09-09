@@ -446,8 +446,10 @@ def _interpret_new_user(instruction: str) -> dict:
             pass
     email_match = re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", instruction, re.I)
     name_match = re.search(r"(?:اسم(?:ها|ه)?|named?|user)\s*[:：]?\s*([\u0600-\u06FFA-Za-z][\u0600-\u06FFA-Za-z ]{1,40})", instruction, re.I)
+    if not name_match:
+        name_match = re.search(r"(?:أضف|اضف|ضيف|ضف|add|invite)\s+(?:لي\s+|لنا\s+|please\s+|me\s+)?([\u0600-\u06FFA-Za-z][\u0600-\u06FFA-Za-z ]{1,40})", instruction, re.I)
     name = name_match.group(1).strip() if name_match else ""
-    name = re.split(r"\s+(?:بريد|email|دور|role|في|in)\b", name, maxsplit=1, flags=re.I)[0].strip()
+    name = re.split(r"\s+(?:بريد|email|دور|role|في|in|للفريق|للفريق|كعضو|كقائد|as)\b", name, maxsplit=1, flags=re.I)[0].strip()
     team_match = re.search(r"(?:team|فريق|تيم).*?(?:named?|اسم(?:ه)?)\s*[:：]?\s*([\u0600-\u06FFA-Za-z0-9 _-]{2,50})", instruction, re.I)
     if not team_match:
         team_match = re.search(r"(?:create|new|أنشئ|انشئ|سوي|سوّي)\s+(?:a\s+)?(?:new\s+)?(?:team|فريق|تيم)\s*[:：]?\s*([\u0600-\u06FFA-Za-z0-9 _-]{2,50})", instruction, re.I)
@@ -475,9 +477,10 @@ async def interpret_new_team_user(body: NewUserInterpretRequest, user: dict = De
 
 def _interpret_team_command_batch(instruction: str) -> dict:
     """Turn one natural-language request into an ordered, reviewable action plan."""
+    is_arabic = bool(re.search(r"[\u0600-\u06FF]", instruction))
     llm = get_llm()
     if llm is not None:
-        prompt = """Convert this Arabic or English team-management request into strict JSON only: {"summary":"short summary","actions":[...]}. Each action must use action add, remove, create_team, delete_team, change_role, list_members, or team_summary and include name, email, team_name, role, suggested_username. Keep the user's order. Adding a user requires their personal email. Never invent details: use null for every name, email, team name, or username the user did not explicitly provide. Never use placeholder values such as 'New Member Name' or 'newmember@example.com'. Request: """ + instruction
+        prompt = """You are Meyaar's friendly Team Management Agent. Understand natural Arabic (including Saudi dialect) and English. Do not execute anything. Convert the request into strict JSON only: {"reply":"a warm, concise conversational reply in the user's language","summary":"short plan summary in the user's language","actions":[...]}. Each action must use add, remove, create_team, delete_team, change_role, list_members, or team_summary and include name, email, team_name, role, suggested_username. Keep the user's order and infer ordinary phrasing such as 'ضيف محمد' or 'خل سارة ليدر'. Never invent identity data: use null for every name, email, team name, or username not explicitly provided. For add with a name but no email, keep the name and null email so the application can search the database first. If matching accounts exist, the application will ask the user to choose; if not, it will request a personal email. Destructive or role-changing operations always require UI confirmation. Reply naturally, for example in Arabic: 'أبشر، لقيت لك الأسماء المطابقة. أي واحد تقصد؟' Never claim an action was executed. Request: """ + instruction
         try:
             parsed = json.loads(_strip_json_fence(str(llm.invoke(prompt).content)))
             actions = parsed.get("actions") if isinstance(parsed, dict) else None
@@ -491,12 +494,18 @@ def _interpret_team_command_batch(instruction: str) -> dict:
                         continue
                     normalized.append({"action": kind, "name": action.get("name"), "email": action.get("email"), "team_name": action.get("team_name"), "role": "leader" if action.get("role") == "leader" else "member", "suggested_username": action.get("suggested_username")})
                 if normalized:
-                    return {"summary": str(parsed.get("summary") or f"{len(normalized)} actions ready for review"), "actions": normalized}
+                    default_summary = f"تم تجهيز {len(normalized)} إجراءات للمراجعة" if is_arabic else f"{len(normalized)} actions ready for review"
+                    default_reply = "أبشر، جهزت طلبك للمراجعة." if is_arabic else "Sure — I prepared your request for review."
+                    return {"reply": str(parsed.get("reply") or default_reply), "summary": str(parsed.get("summary") or default_summary), "actions": normalized}
         except Exception:
             pass
     parts = [part.strip() for part in re.split(r"\s*(?:،|,|\bثم\b|\bوبعدين\b|\band\b)\s*", instruction, flags=re.I) if part.strip()]
     actions = [_interpret_new_user(part) for part in parts[:12]]
-    return {"summary": f"{len(actions)} actions ready for review", "actions": actions}
+    return {
+        "reply": "أبشر، جهزت طلبك وحددت البيانات التي نحتاجها قبل التنفيذ." if is_arabic else "Sure — I prepared your request and identified anything needed before execution.",
+        "summary": f"تم تجهيز {len(actions)} إجراءات للمراجعة" if is_arabic else f"{len(actions)} actions ready for review",
+        "actions": actions,
+    }
 
 
 @app.post("/team/commands/interpret")

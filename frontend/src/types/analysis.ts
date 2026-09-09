@@ -201,6 +201,6 @@ export interface ManagedTeamOverview { team_id: string; name: string; members_co
 export interface ManagedTeamMemberSummary { user_id: string; name: string; email: string | null; role: UserRole; is_online: boolean; analyses_count: number; total_errors: number; average_compliance: number | null; }
 export interface ManagedTeamMemberOverview { team: { team_id: string; name: string }; members: ManagedTeamMemberSummary[]; }
 export interface NewUserPreview { action: "add" | "remove" | "create_team" | "delete_team" | "change_role" | "list_members" | "team_summary"; name: string | null; email: string | null; team_name: string | null; role: "leader" | "member"; suggested_username: string | null; missing_fields: string[]; }
-export interface TeamCommandPlan { summary: string; actions: NewUserPreview[]; }
+export interface TeamCommandPlan { reply?: string; summary: string; actions: NewUserPreview[]; }
 export interface UserDirectoryEntry { user_id: string; name: string; email: string | null; username: string | null; }
 export interface CreatedTeamUser { user_id: string; name: string; email: string; personal_email: string; role: "leader" | "member"; must_change_password: true; welcome_email_sent: boolean; username?: string; temporary_password?: string; }
