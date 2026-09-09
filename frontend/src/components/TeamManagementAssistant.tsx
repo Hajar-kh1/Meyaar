@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { activateTeam, addExistingTeamMember, createTeam, createTeamUser, deleteTeam, getManagedTeamMemberSummary, getManagedTeamsOverview, getMe, interpretTeamCommands, removeTeamMember, searchUserDirectory, updateTeamMemberRole } from "@/lib/api";
+import { activateTeam, addExistingTeamMember, createTeam, createTeamUser, deleteTeam, getAuthToken, getManagedTeamMemberSummary, getManagedTeamsOverview, getMe, interpretTeamCommands, removeTeamMember, searchUserDirectory, updateTeamMemberRole } from "@/lib/api";
 import type { AuthUser, ManagedTeamMemberOverview, ManagedTeamOverview, NewUserPreview, TeamCommandPlan, TeamDashboardData, UserDirectoryEntry } from "@/types/analysis";
 import { useLanguage } from "@/components/LanguageProvider";
 
 type Props = { data: TeamDashboardData; onClose: () => void; onComplete: (user: AuthUser) => void };
-type VoiceLanguage = "ar" | "en";
 type SpeechRecognitionEventLike = { results: ArrayLike<{ 0: { transcript: string } }> };
 type SpeechRecognitionLike = { lang: string; continuous: boolean; interimResults: boolean; onresult: ((event: SpeechRecognitionEventLike) => void) | null; onerror: (() => void) | null; onend: (() => void) | null; start: () => void };
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
@@ -39,30 +38,39 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   const [managedTeams, setManagedTeams] = useState<ManagedTeamOverview[] | null>(null);
   const [selectedManagedTeam, setSelectedManagedTeam] = useState<ManagedTeamMemberOverview | null>(null);
   const [listedMembers, setListedMembers] = useState<TeamDashboardData["members"] | null>(null);
-  const [voiceLanguage, setVoiceLanguage] = useState<VoiceLanguage>(language === "ar" ? "ar" : "en");
   const [listening, setListening] = useState(false);
 
-  function speak(text: string) {
-    if (!("speechSynthesis" in window)) return;
+  function browserSpeak(text: string) {
+    if (!("speechSynthesis" in window)) throw new Error("Speech synthesis is unavailable.");
     window.speechSynthesis.cancel();
-    const segments = text.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]+|[A-Za-z]+|[^\u0600-\u06FFA-Za-z]+/g) ?? [text];
-    let active: VoiceLanguage = /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
-    const grouped: Array<{ text: string; language: VoiceLanguage }> = [];
-    for (const token of segments) {
-      const tokenLanguage: VoiceLanguage = /[\u0600-\u06FF]/.test(token) ? "ar" : /[A-Za-z]/.test(token) ? "en" : active;
-      if (grouped.at(-1)?.language === tokenLanguage) grouped[grouped.length - 1].text += token;
-      else grouped.push({ text: token, language: tokenLanguage });
-      active = tokenLanguage;
-    }
+    const speechLanguage = /[\u0600-\u06FF]/.test(text) ? "ar-SA" : "en-US";
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = speechLanguage;
+    utterance.rate = speechLanguage === "ar-SA" ? 0.92 : 0.96;
     const voices = window.speechSynthesis.getVoices();
-    grouped.filter((segment) => segment.text.trim()).forEach((segment) => {
-      const utterance = new SpeechSynthesisUtterance(segment.text);
-      utterance.lang = segment.language === "ar" ? "ar-SA" : "en-US";
-      utterance.rate = segment.language === "ar" ? 0.92 : 0.96;
-      const voice = voices.find((item) => item.lang.toLowerCase().startsWith(segment.language));
-      if (voice) utterance.voice = voice;
-      window.speechSynthesis.speak(utterance);
-    });
+    const voice = voices.find((item) => item.lang.toLowerCase().startsWith(speechLanguage.slice(0, 2).toLowerCase()));
+    if (voice) utterance.voice = voice;
+    window.speechSynthesis.resume();
+    window.speechSynthesis.speak(utterance);
+  }
+
+  async function speak(text: string) {
+    setError("");
+    try {
+      const response = await fetch("/backend/voice/synthesize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAuthToken() ?? ""}` },
+        body: JSON.stringify({ text, voice: "lulwa" }),
+      });
+      if (!response.ok) throw new Error("Server voice is unavailable.");
+      const url = URL.createObjectURL(await response.blob());
+      const audio = new Audio(url);
+      audio.onended = () => URL.revokeObjectURL(url);
+      await audio.play();
+    } catch {
+      try { browserSpeak(text); }
+      catch { setError(/[\u0600-\u06FF]/.test(text) ? "تعذر تشغيل الصوت على هذا الجهاز." : "Audio could not be played on this device."); }
+    }
   }
 
   function listen() {
@@ -70,7 +78,8 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     const Recognition = browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition;
     if (!Recognition) { setError(language === "ar" ? "الإدخال الصوتي غير مدعوم في هذا المتصفح." : "Voice input is not supported by this browser."); return; }
     const recognition = new Recognition();
-    recognition.lang = voiceLanguage === "ar" ? "ar-SA" : "en-US";
+    // The browser chooses its configured recognition language; the assistant
+    // detects Arabic or English from the resulting transcript automatically.
     recognition.continuous = false; recognition.interimResults = false;
     recognition.onresult = (event) => setInstruction(event.results[0][0].transcript);
     recognition.onerror = () => { setListening(false); setError(language === "ar" ? "تعذر التقاط الصوت، حاولي مرة أخرى." : "Voice input could not be captured. Please try again."); };
@@ -190,6 +199,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   function resetChat() { setPlan(null); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null); setSentMessage(""); setInstruction(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({}); }
 
   const isArabic = language === "ar";
+  const conversationIsArabic = sentMessage ? /[\u0600-\u06FF]/.test(sentMessage) : isArabic;
   const copy = isArabic ? {
     title: "مساعد إدارة الفريق", online: "متصل الآن", greeting: "كيف أقدر أساعدك في إدارة الفريق؟", example: "اكتبي طلبك بالعربي أو الإنجليزي، مثل: «أنشئ فريق جودة وأضف سارة كقائدة فريق».", preparing: "جارٍ تجهيز مراجعة طلبك…", completed: "تم تنفيذ الطلب", more: "هل تحتاجين مساعدة أخرى؟", newTask: "مهمة جديدة", end: "إنهاء المحادثة", review: "راجعي الخطة ثم أكدي التنفيذ", placeholder: "اكتبي طلبك لإدارة الفريق…", quick: [
       { title: "إضافة عضو", hint: "عضو أو حساب جديد", prompt: "أضف عضوًا جديدًا إلى الفريق" },
@@ -221,13 +231,13 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           {sentMessage && <div className="flex justify-end"><div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm leading-6 text-white">{sentMessage}</div></div>}
           {busy && !plan && <AssistantBubble><p className="text-slate-500">{copy.preparing}</p></AssistantBubble>}
 
-          {plan && <AssistantBubble wide><div className="flex items-start justify-between gap-2"><div><p className="font-semibold text-[#071c33]">{plan.reply ?? plan.summary}</p>{plan.reply && <p className="mt-1 text-xs text-slate-500">{plan.summary}</p>}</div><button type="button" onClick={() => speak(plan.reply ?? plan.summary)} aria-label={isArabic ? "استمع للرد" : "Listen to response"} className="shrink-0 rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700">🔊</button></div><div className="mt-3 space-y-2">{plan.actions.map((action, index) => (
+          {plan && <AssistantBubble wide><div className="flex items-start justify-between gap-2"><div><p className="font-semibold text-[#071c33]">{plan.reply ?? plan.summary}</p>{plan.reply && <p className="mt-1 text-xs text-slate-500">{plan.summary}</p>}</div><button type="button" onClick={() => speak(plan.reply ?? plan.summary)} aria-label={conversationIsArabic ? "استمع للرد" : "Listen to response"} className="shrink-0 rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700">🔊</button></div><div className="mt-3 space-y-2">{plan.actions.map((action, index) => (
             <article key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-center gap-2"><span className="flex size-6 items-center justify-center rounded-full bg-blue-100 text-xs font-black text-blue-700">{index + 1}</span><h3 className="text-sm font-bold capitalize">{action.action.replaceAll("_", " ")}</h3></div>
+              <div className="flex items-center gap-2"><span className="flex size-6 items-center justify-center rounded-full bg-blue-100 text-xs font-black text-blue-700">{index + 1}</span><h3 className="text-sm font-bold capitalize">{conversationIsArabic ? ({ add: "إضافة عضو", remove: "إزالة عضو", create_team: "إنشاء فريق", delete_team: "حذف الفريق", change_role: "تغيير الدور", list_members: "عرض الأعضاء", team_summary: "ملخص الفريق" } as Record<string, string>)[action.action] : action.action.replaceAll("_", " ")}</h3></div>
               {action.action === "create_team" && <input value={action.team_name ?? ""} onChange={(event) => updateAction(index, { team_name: event.target.value })} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Team name" />}
               {action.action === "add" && <div className="mt-2 space-y-2">
-                {(directoryMatches[index]?.length ?? 0) > 0 && !createNew[index] && <div className="rounded-lg border border-blue-100 bg-blue-50 p-3"><p className="mb-2 text-xs font-semibold text-blue-800">{isArabic ? `أبشري، لقيت حسابات مطابقة لاسم ${action.name}. أي واحد تقصدين؟` : `I found accounts matching ${action.name}. Which one do you mean?`}</p><div className="space-y-1.5">{directoryMatches[index].map((entry) => <label key={entry.user_id} className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm"><input type="radio" name={`existing-${index}`} checked={existingSelections[index] === entry.user_id} onChange={() => setExistingSelections({ ...existingSelections, [index]: entry.user_id })} className="accent-blue-600" /><span><strong>{entry.name}</strong><span className="ms-2 text-slate-500">{entry.email || entry.username}</span></span></label>)}</div><button type="button" onClick={() => { setCreateNew({ ...createNew, [index]: true }); setExistingSelections({ ...existingSelections, [index]: "" }); }} className="mt-2 text-xs font-bold text-blue-700">{isArabic ? "ولا واحد منهم — أنشئ حسابًا جديدًا" : "None of these — create a new account"}</button></div>}
-                {((directoryMatches[index]?.length ?? 0) === 0 || createNew[index]) && <><p className="text-xs text-slate-500">{action.name && action.email ? (isArabic ? "راجعي بيانات الحساب قبل التأكيد." : "Review the account details before confirming.") : (isArabic ? `ما لقيت حسابًا مطابقًا. ولا يهمك، أدخلي الاسم والبريد الشخصي${action.name ? ` لـ${action.name}` : ""} وسأنشئ الحساب وأضيفه للفريق.` : "I could not find a matching account. Enter the member’s real name and personal email, and I’ll create a secure account and add it to the team.")}</p><div className="grid gap-2 sm:grid-cols-3"><label className="sr-only" htmlFor={`member-name-${index}`}>{isArabic ? "اسم العضو" : "Member name"}</label><input id={`member-name-${index}`} value={action.name ?? ""} onChange={(event) => updateAction(index, { name: event.target.value })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder={isArabic ? "اسم العضو" : "Member name"} /><label className="sr-only" htmlFor={`member-email-${index}`}>{isArabic ? "البريد الشخصي" : "Personal email"}</label><input id={`member-email-${index}`} type="email" value={action.email ?? ""} onChange={(event) => updateAction(index, { email: event.target.value })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder={isArabic ? "البريد الشخصي" : "Personal email"} /><select aria-label={isArabic ? "دور العضو" : "Member role"} value={action.role} onChange={(event) => updateAction(index, { role: event.target.value as "member" | "leader" })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="member">{isArabic ? "عضو" : "Member"}</option><option value="leader">{isArabic ? "قائد فريق" : "Team Leader"}</option></select></div>{createNew[index] && <button type="button" onClick={() => setCreateNew({ ...createNew, [index]: false })} className="text-xs font-bold text-slate-500">{isArabic ? "العودة للحسابات المطابقة" : "Back to matching accounts"}</button>}</>}
+                {(directoryMatches[index]?.length ?? 0) > 0 && !createNew[index] && <div className="rounded-lg border border-blue-100 bg-blue-50 p-3"><p className="mb-2 text-xs font-semibold text-blue-800">{conversationIsArabic ? `أبشري، لقيت حسابات مطابقة لاسم ${action.name}. أي واحد تقصدين؟` : `I found accounts matching ${action.name}. Which one do you mean?`}</p><div className="space-y-1.5">{directoryMatches[index].map((entry) => <label key={entry.user_id} className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm"><input type="radio" name={`existing-${index}`} checked={existingSelections[index] === entry.user_id} onChange={() => setExistingSelections({ ...existingSelections, [index]: entry.user_id })} className="accent-blue-600" /><span><strong>{entry.name}</strong><span className="ms-2 text-slate-500">{entry.email || entry.username}</span></span></label>)}</div><button type="button" onClick={() => { setCreateNew({ ...createNew, [index]: true }); setExistingSelections({ ...existingSelections, [index]: "" }); }} className="mt-2 text-xs font-bold text-blue-700">{conversationIsArabic ? "ولا واحد منهم — أنشئ حسابًا جديدًا" : "None of these — create a new account"}</button></div>}
+                {((directoryMatches[index]?.length ?? 0) === 0 || createNew[index]) && <><p className="text-xs text-slate-500">{action.name && action.email ? (conversationIsArabic ? "راجعي بيانات الحساب قبل التأكيد." : "Review the account details before confirming.") : (conversationIsArabic ? `ما لقيت حسابًا مطابقًا. ولا يهمك، أدخلي الاسم والبريد الشخصي${action.name ? ` لـ${action.name}` : ""} وسأنشئ الحساب وأضيفه للفريق.` : "I could not find a matching account. Enter the member’s real name and personal email, and I’ll create a secure account and add it to the team.")}</p><div className="grid gap-2 sm:grid-cols-3"><label className="sr-only" htmlFor={`member-name-${index}`}>{conversationIsArabic ? "اسم العضو" : "Member name"}</label><input id={`member-name-${index}`} value={action.name ?? ""} onChange={(event) => updateAction(index, { name: event.target.value })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder={conversationIsArabic ? "اسم العضو" : "Member name"} /><label className="sr-only" htmlFor={`member-email-${index}`}>{conversationIsArabic ? "البريد الشخصي" : "Personal email"}</label><input id={`member-email-${index}`} type="email" value={action.email ?? ""} onChange={(event) => updateAction(index, { email: event.target.value })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder={conversationIsArabic ? "البريد الشخصي" : "Personal email"} /><select aria-label={conversationIsArabic ? "دور العضو" : "Member role"} value={action.role} onChange={(event) => updateAction(index, { role: event.target.value as "member" | "leader" })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="member">{conversationIsArabic ? "عضو" : "Member"}</option><option value="leader">{conversationIsArabic ? "قائد فريق" : "Team Leader"}</option></select></div>{createNew[index] && <button type="button" onClick={() => setCreateNew({ ...createNew, [index]: false })} className="text-xs font-bold text-slate-500">{conversationIsArabic ? "العودة للحسابات المطابقة" : "Back to matching accounts"}</button>}</>}
               </div>}
               {(action.action === "remove" || action.action === "change_role") && <div className="mt-2 grid gap-2 sm:grid-cols-2"><select required value={memberSelections[index] ?? ""} onChange={(event) => setMemberSelections({ ...memberSelections, [index]: event.target.value })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="">Choose member</option>{candidates(action).map((member) => <option key={member.user_id} value={member.user_id}>{member.name} — {member.email}</option>)}</select>{action.action === "change_role" && <select value={action.role} onChange={(event) => updateAction(index, { role: event.target.value as "member" | "leader" })} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="member">Member</option><option value="leader">Team Leader</option></select>}</div>}
               {action.action === "delete_team" && <div className="mt-2"><p className="text-xs font-semibold text-red-600">This permanently deletes the active team and its analyses.</p><input value={deleteConfirmations[index] ?? ""} onChange={(event) => setDeleteConfirmations({ ...deleteConfirmations, [index]: event.target.value })} className="mt-2 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm" placeholder={`Type ${data.team.name} to confirm`} /></div>}
@@ -238,7 +248,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           {error && <div className="ml-11 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         </div>
 
-        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-3"><div className="flex items-end gap-2 rounded-xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(plan) || Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-9 flex-1 resize-none px-2 py-1.5 text-sm outline-none disabled:bg-white" placeholder={plan ? copy.review : results ? copy.more : copy.placeholder} /><select value={voiceLanguage} onChange={(event) => setVoiceLanguage(event.target.value as VoiceLanguage)} aria-label={isArabic ? "لغة الإدخال الصوتي" : "Voice input language"} className="h-9 rounded-lg border border-slate-200 bg-slate-50 px-1 text-[10px] font-bold"><option value="ar">AR</option><option value="en">EN</option></select><button type="button" onClick={listen} disabled={Boolean(plan) || Boolean(results) || listening} aria-label={isArabic ? "إدخال صوتي" : "Voice input"} className={`flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 ${listening ? "animate-pulse bg-red-50" : "bg-slate-50"}`}>🎙️</button><button type="submit" disabled={busy || Boolean(plan) || Boolean(results) || !instruction.trim()} aria-label="Send" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-base text-white disabled:bg-slate-300">↑</button></div></form>
+        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-3"><div className="flex items-end gap-2 rounded-xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(plan) || Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-9 flex-1 resize-none px-2 py-1.5 text-sm outline-none disabled:bg-white" placeholder={plan ? copy.review : results ? copy.more : copy.placeholder} /><button type="button" onClick={listen} disabled={Boolean(plan) || Boolean(results) || listening} aria-label={isArabic ? "إدخال صوتي تلقائي اللغة" : "Automatic-language voice input"} className={`flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 ${listening ? "animate-pulse bg-red-50" : "bg-slate-50"}`}>🎙️</button><button type="submit" disabled={busy || Boolean(plan) || Boolean(results) || !instruction.trim()} aria-label="Send" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-base text-white disabled:bg-slate-300">↑</button></div></form>
       </section>
     </div>
   );

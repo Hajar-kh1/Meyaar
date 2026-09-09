@@ -486,13 +486,19 @@ def _interpret_team_command_batch(instruction: str) -> dict:
             actions = parsed.get("actions") if isinstance(parsed, dict) else None
             if isinstance(actions, list) and actions:
                 normalized = []
+                seen_actions = set()
                 for action in actions[:12]:
                     if not isinstance(action, dict):
                         continue
                     kind = action.get("action")
                     if kind not in {"add", "remove", "create_team", "delete_team", "change_role", "list_members", "team_summary"}:
                         continue
-                    normalized.append({"action": kind, "name": action.get("name"), "email": action.get("email"), "team_name": action.get("team_name"), "role": "leader" if action.get("role") == "leader" else "member", "suggested_username": action.get("suggested_username")})
+                    normalized_action = {"action": kind, "name": action.get("name"), "email": action.get("email"), "team_name": action.get("team_name"), "role": "leader" if action.get("role") == "leader" else "member", "suggested_username": action.get("suggested_username")}
+                    identity = (kind, str(action.get("name") or "").strip().lower(), str(action.get("email") or "").strip().lower(), str(action.get("team_name") or "").strip().lower(), normalized_action["role"])
+                    if identity in seen_actions:
+                        continue
+                    seen_actions.add(identity)
+                    normalized.append(normalized_action)
                 if normalized:
                     default_summary = f"تم تجهيز {len(normalized)} إجراءات للمراجعة" if is_arabic else f"{len(normalized)} actions ready for review"
                     default_reply = "أبشر، جهزت طلبك للمراجعة." if is_arabic else "Sure — I prepared your request for review."
