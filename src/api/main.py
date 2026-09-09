@@ -531,6 +531,41 @@ async def interpret_team_commands(body: TeamCommandBatchRequest, user: dict = De
     return await run_in_threadpool(_interpret_team_command_batch, body.instruction)
 
 
+@app.post("/team/voice/transcribe")
+async def transcribe_team_command(file: UploadFile = File(...), user: dict = Depends(current_user)):
+    """Transcribe a bilingual team command with automatic language detection."""
+    if user["role"] != "manager":
+        raise HTTPException(status_code=403, detail="Only the team manager can use team voice commands.")
+    audio = await file.read()
+    if not audio:
+        raise HTTPException(status_code=422, detail="The audio recording is empty.")
+    if len(audio) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="The audio recording is too large.")
+
+    def transcribe() -> str:
+        from groq import Groq
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError("GROQ_API_KEY is not configured for voice commands.")
+        result = Groq(api_key=api_key).audio.transcriptions.create(
+            file=(file.filename or "team-command.webm", audio),
+            model="whisper-large-v3-turbo",
+            response_format="json",
+            temperature=0.0,
+        )
+        return str(result.text).strip()
+
+    try:
+        transcript = await run_in_threadpool(transcribe)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Voice transcription failed: {error}") from error
+    if not transcript:
+        raise HTTPException(status_code=422, detail="No speech was detected.")
+    return {"text": transcript}
+
+
 @app.post("/team/users", status_code=201)
 def create_team_user(body: NewUserCreateRequest, user: dict = Depends(current_user)):
     if user["role"] != "manager" or not user["team_id"]:

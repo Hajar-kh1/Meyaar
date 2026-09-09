@@ -1,14 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { activateTeam, addExistingTeamMember, createTeam, createTeamUser, deleteTeam, getAuthToken, getManagedTeamMemberSummary, getManagedTeamsOverview, getMe, interpretTeamCommands, removeTeamMember, searchUserDirectory, updateTeamMemberRole } from "@/lib/api";
 import type { AuthUser, ManagedTeamMemberOverview, ManagedTeamOverview, NewUserPreview, TeamCommandPlan, TeamDashboardData, UserDirectoryEntry } from "@/types/analysis";
 import { useLanguage } from "@/components/LanguageProvider";
 
 type Props = { data: TeamDashboardData; onClose: () => void; onComplete: (user: AuthUser) => void };
-type SpeechRecognitionEventLike = { results: ArrayLike<{ 0: { transcript: string } }> };
-type SpeechRecognitionLike = { lang: string; continuous: boolean; interimResults: boolean; onresult: ((event: SpeechRecognitionEventLike) => void) | null; onerror: (() => void) | null; onend: (() => void) | null; start: () => void };
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 // The LLM may use form-like examples for a vague request. They must never become
 // real account data; leave the review fields empty and ask the manager instead.
@@ -39,6 +36,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   const [selectedManagedTeam, setSelectedManagedTeam] = useState<ManagedTeamMemberOverview | null>(null);
   const [listedMembers, setListedMembers] = useState<TeamDashboardData["members"] | null>(null);
   const [listening, setListening] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
 
   function browserSpeak(text: string) {
     if (!("speechSynthesis" in window)) throw new Error("Speech synthesis is unavailable.");
@@ -73,18 +71,33 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     }
   }
 
-  function listen() {
-    const browserWindow = window as typeof window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor };
-    const Recognition = browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition;
-    if (!Recognition) { setError(language === "ar" ? "الإدخال الصوتي غير مدعوم في هذا المتصفح." : "Voice input is not supported by this browser."); return; }
-    const recognition = new Recognition();
-    // The browser chooses its configured recognition language; the assistant
-    // detects Arabic or English from the resulting transcript automatically.
-    recognition.continuous = false; recognition.interimResults = false;
-    recognition.onresult = (event) => setInstruction(event.results[0][0].transcript);
-    recognition.onerror = () => { setListening(false); setError(language === "ar" ? "تعذر التقاط الصوت، حاولي مرة أخرى." : "Voice input could not be captured. Please try again."); };
-    recognition.onend = () => setListening(false);
-    setListening(true); recognition.start();
+  async function listen() {
+    if (listening) { recorderRef.current?.stop(); return; }
+    setError("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      recorderRef.current = recorder;
+      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = async () => {
+        setListening(false); recorderRef.current = null; stream.getTracks().forEach((track) => track.stop());
+        try {
+          const form = new FormData();
+          form.append("file", new Blob(chunks, { type: recorder.mimeType || "audio/webm" }), "team-command.webm");
+          const response = await fetch("/backend/team/voice/transcribe", { method: "POST", headers: { Authorization: `Bearer ${getAuthToken() ?? ""}` }, body: form });
+          const body = await response.json().catch(() => ({})) as { text?: string; detail?: string };
+          if (!response.ok || !body.text) throw new Error(typeof body.detail === "string" ? body.detail : "Voice transcription failed.");
+          setInstruction(body.text);
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : (language === "ar" ? "تعذر فهم التسجيل الصوتي." : "The voice recording could not be understood."));
+        }
+      };
+      recorder.start(); setListening(true);
+    } catch {
+      setListening(false);
+      setError(language === "ar" ? "تعذر الوصول إلى الميكروفون. تأكدي من السماح باستخدامه." : "Microphone access failed. Please allow microphone access.");
+    }
   }
 
   function candidates(action: NewUserPreview) {
@@ -248,7 +261,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           {error && <div className="ml-11 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         </div>
 
-        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-3"><div className="flex items-end gap-2 rounded-xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(plan) || Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-9 flex-1 resize-none px-2 py-1.5 text-sm outline-none disabled:bg-white" placeholder={plan ? copy.review : results ? copy.more : copy.placeholder} /><button type="button" onClick={listen} disabled={Boolean(plan) || Boolean(results) || listening} aria-label={isArabic ? "إدخال صوتي تلقائي اللغة" : "Automatic-language voice input"} className={`flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 ${listening ? "animate-pulse bg-red-50" : "bg-slate-50"}`}>🎙️</button><button type="submit" disabled={busy || Boolean(plan) || Boolean(results) || !instruction.trim()} aria-label="Send" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-base text-white disabled:bg-slate-300">↑</button></div></form>
+        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-3"><div className="flex items-end gap-2 rounded-xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(plan) || Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-9 flex-1 resize-none px-2 py-1.5 text-sm outline-none disabled:bg-white" placeholder={plan ? copy.review : results ? copy.more : copy.placeholder} /><button type="button" onClick={() => void listen()} disabled={Boolean(plan) || Boolean(results)} aria-label={listening ? (isArabic ? "إيقاف التسجيل" : "Stop recording") : (isArabic ? "إدخال صوتي تلقائي اللغة" : "Automatic-language voice input")} className={`flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 ${listening ? "animate-pulse bg-red-100 text-red-700" : "bg-slate-50"}`}>{listening ? "■" : "🎙️"}</button><button type="submit" disabled={busy || Boolean(plan) || Boolean(results) || !instruction.trim()} aria-label="Send" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-base text-white disabled:bg-slate-300">↑</button></div></form>
       </section>
     </div>
   );
