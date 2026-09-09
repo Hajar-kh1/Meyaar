@@ -13,6 +13,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 interface MapPanelProps {
   result: ProcessingResult;
   selectedErrorId: string | null;
+  initialBasemap?: "map" | "satellite";
 }
 
 
@@ -42,12 +43,13 @@ const LeafletMap = dynamic(
 export default function MapPanel({
   result,
   selectedErrorId,
+  initialBasemap = "map",
 }: MapPanelProps) {
   const { t } = useLanguage();
   const [showLayer, setShowLayer] = useState(true);
   const [showErrors, setShowErrors] = useState(true);
   const [resetKey, setResetKey] = useState(0);
-  const [basemap, setBasemap] = useState<"map" | "satellite">("map");
+  const [basemap, setBasemap] = useState<"map" | "satellite">(initialBasemap);
   const errors = isVectorResult(result)
     ? result.validation.errors.filter(
         (error) => error.geometry,
