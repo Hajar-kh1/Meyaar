@@ -192,8 +192,8 @@ export default function AgentChat({ runId, embedded = false }: AgentChatProps) {
     </section>
     )}
 
-    {!embedded && <div className="flex items-center gap-2 rtl:flex-row-reverse">
-      {!isOpen && <button type="button" onClick={() => setIsOpen(true)} className="rounded-xl bg-white px-3 py-2 text-start text-[10px] leading-4 text-[#17332f] shadow-[0_6px_18px_rgba(18,60,53,.11)] ring-1 ring-slate-100"><strong className="block text-[11px] text-[#075f50]">{language === "ar" ? "اسأل معيار" : "Ask Meyaar"}</strong><span>{language === "ar" ? (runId ? "ما معنى هذا التحليل؟" : "كيف أبدأ الفحص؟") : (runId ? "What does this analysis mean?" : "How do I start a check?")}</span></button>}
+    {!embedded && <div className="group flex items-center gap-2 rtl:flex-row-reverse">
+      {!isOpen && <button type="button" onClick={() => setIsOpen(true)} tabIndex={-1} aria-hidden="true" className="pointer-events-none translate-x-2 rounded-xl bg-white px-3 py-2 text-start text-[10px] leading-4 text-[#17332f] opacity-0 shadow-[0_6px_18px_rgba(18,60,53,.11)] ring-1 ring-slate-100 transition duration-200 group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-x-0 group-focus-within:opacity-100 rtl:-translate-x-2 rtl:group-hover:translate-x-0 rtl:group-focus-within:translate-x-0"><strong className="block text-[11px] text-[#075f50]">{language === "ar" ? "اسأل معيار" : "Ask Meyaar"}</strong><span>{language === "ar" ? (runId ? "ما معنى هذا التحليل؟" : "كيف أبدأ الفحص؟") : (runId ? "What does this analysis mean?" : "How do I start a check?")}</span></button>}
       <button
         type="button"
         onClick={() => setIsOpen((value) => !value)}
