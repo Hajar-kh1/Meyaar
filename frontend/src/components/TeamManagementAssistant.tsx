@@ -299,7 +299,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     <div className="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-950/55 p-3" role="dialog" aria-modal="true">
       <section className="flex h-[min(620px,86vh)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-[#f4f7fb] shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-          <div className="flex items-center gap-2.5"><span className="flex size-9 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">M</span><div><h2 className="text-sm font-black text-[#071c33]">{copy.title}</h2><p className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="size-1.5 rounded-full bg-emerald-500" />{copy.online}</p></div></div>
+          <div className="flex items-center gap-2.5"><span className="flex size-9 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">M</span><div><h2 className="text-sm font-black text-[#071c33]">{pageIsArabic ? "مساعد إدارة الفريق" : "Team assistant"}</h2><p className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="size-1.5 rounded-full bg-emerald-500" />{pageIsArabic ? "متصل الآن" : "Online"}</p></div></div>
           <button type="button" onClick={onClose} aria-label="Close" className="flex size-9 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-600">×</button>
         </header>
 
