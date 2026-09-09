@@ -212,7 +212,7 @@ textarea:focus-visible {
 .dark .meyaar-logo-light { display: none; }
 .dark .meyaar-logo-dark {
   display: block;
-  transform: scale(.9);
+  transform: none;
 }
 .dark .meyaar-processing-map-light { display: none; }
 .dark .meyaar-processing-map-dark { display: block; }
@@ -220,8 +220,14 @@ textarea:focus-visible {
   background: #071b23;
   border-color: #2a5b5b;
 }
-.dark .meyaar-landing-logo { background: #071b23; }
-.dark .meyaar-sidebar-logo { background: #12333d; }
+.dark .meyaar-landing-logo {
+  width: 74px;
+  height: 40px;
+  overflow: visible;
+  border-radius: 0;
+  background: transparent;
+}
+.dark .meyaar-sidebar-logo { background: transparent; }
 
 .dark .meyaar-third-hero-overlay {
   background: linear-gradient(90deg, rgb(6 24 31 / .34) 0%, rgb(6 24 31 / .08) 50%, transparent 74%);
