@@ -42,7 +42,7 @@
         "BLD_INJ_B"
       ],
       "insufficient_context": false,
-      "agent_model": "minimax/minimax-m3:free"
+      "agent_model": "deepseek-chat"
     },
     {
       "result_id": 140,
@@ -61,7 +61,7 @@
         "{'feature_id': 'BLD_INJ_DUP', 'layer_name': 'buildings', 'relationship': 'duplicate (identical EWKB geometry; same centroid and bbox)', 'geometry_type': 'POLYGON', 'srid': 4326, 'centroid': 'POINT(46.68807952979557 24.81435469064251)'}"
       ],
       "insufficient_context": false,
-      "agent_model": "minimax/minimax-m3:free"
+      "agent_model": "deepseek-chat"
     },
     {
       "result_id": 141,
@@ -80,7 +80,7 @@
         "{'feature_id': 'BLDG_0538831', 'layer_name': 'buildings', 'relationship': 'duplicate (identical EWKB geometry; same centroid and bbox)', 'geometry_type': 'POLYGON', 'srid': 4326, 'centroid': 'POINT(46.68807952979557 24.81435469064251)'}"
       ],
       "insufficient_context": false,
-      "agent_model": "minimax/minimax-m3:free"
+      "agent_model": "deepseek-chat"
     },
     {
       "result_id": 138,
@@ -97,7 +97,7 @@
       "human_review_required": false,
       "related_features": [],
       "insufficient_context": false,
-      "agent_model": "minimax/minimax-m3:free"
+      "agent_model": "deepseek-chat"
     },
     {
       "result_id": 139,
@@ -114,7 +114,7 @@
       "human_review_required": false,
       "related_features": [],
       "insufficient_context": false,
-      "agent_model": "minimax/minimax-m3:free"
+      "agent_model": "deepseek-chat"
     },
     {
       "result_id": 137,
@@ -131,7 +131,7 @@
       "human_review_required": false,
       "related_features": [],
       "insufficient_context": false,
-      "agent_model": "minimax/minimax-m3:free"
+      "agent_model": "deepseek-chat"
     }
   ]
 }

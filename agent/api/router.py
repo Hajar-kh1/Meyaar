@@ -139,7 +139,10 @@ def chat_about_run(run_id: UUID4, body: ChatRequest,
         ensure_app_tables(connection)
         require_run_access(connection, user, str(run_id))
     try:
-        out = answer_question(repo, str(run_id), body.question)
+        # Conversation memory is scoped to the authenticated user so each
+        # user's thread about this run stays private (CLI uses user_key="cli").
+        out = answer_question(repo, str(run_id), body.question,
+                              user_key=str(user.get("user_id") or "anonymous"))
     except ValueError as exc:      # no analyses yet for this run
         raise HTTPException(status_code=404, detail=str(exc))
     except RuntimeError as exc:
