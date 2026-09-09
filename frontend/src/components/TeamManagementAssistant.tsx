@@ -159,7 +159,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         const actions = plan.actions.map((action, index) => index === addIndex ? { ...action, email } : action);
         const action = actions[addIndex];
         const username = action.suggested_username || action.name?.toLowerCase().replace(/\s+/g, ".") || "user";
-        const nextPlan = { ...plan, actions, reply: conversationIsArabic ? `ممتاز، بإنشئ حساب ${action.name} باسم مستخدم ${username}، ودورها ${action.role === "leader" ? "قائدة فريق" : "عضو"}، وبرسل بيانات الدخول إلى ${email}.` : `Great. I’ll create ${action.name} with username ${username} as ${action.role}, and send the credentials to ${email}.` };
+        const nextPlan = { ...plan, actions, reply: conversationIsArabic ? `ممتاز، بإنشئ حساب ${action.name} باسم مستخدم ${username}، والدور ${action.role === "leader" ? "قائد فريق" : "عضو"}، وبرسل بيانات الدخول إلى ${email}.` : `Great. I’ll create ${action.name} with username ${username} as ${action.role}, and send the credentials to ${email}.` };
         setPlan(nextPlan);
         await execute(nextPlan);
         return true;
@@ -214,7 +214,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           next.reply = /[\u0600-\u06FF]/.test(message) ? `لقيت أكثر من حساب قريب من اسم ${action.name}. أي واحد تقصدين؟ اكتبي الرقم:\n${choices}` : `I found matching accounts for ${action.name}. Which one do you mean? Reply with the number:\n${choices}`;
         } else {
           const username = action.suggested_username || action.name?.toLowerCase().replace(/\s+/g, ".") || "user";
-          next.reply = /[\u0600-\u06FF]/.test(message) ? `تمام، بجهز حساب ${action.name} باسم مستخدم ${username} ودورها ${action.role === "leader" ? "قائدة فريق" : "عضو"}. أرسلي بريدها الشخصي عشان أرسل لها بيانات الدخول.` : `I’ll prepare ${action.name} with username ${username} as ${action.role}. Please send their personal email so I can deliver the credentials.`;
+          next.reply = /[\u0600-\u06FF]/.test(message) ? `تمام، بجهز حساب ${action.name} باسم مستخدم ${username}، والدور ${action.role === "leader" ? "قائد فريق" : "عضو"}. أرسلي البريد الشخصي عشان أرسل بيانات الدخول لصاحب الحساب.` : `I’ll prepare ${action.name} with username ${username} as ${action.role}. Please send their personal email so I can deliver the credentials.`;
         }
       }
       setMemberSelections(selections); setPlan(next);
