@@ -37,6 +37,26 @@ def compliance_score_from_summary(summary: list[dict], item_count: int) -> float
     return round(max(0.0, 100.0 - min(100.0, weighted / capacity * 100.0)), 1)
 
 
+
+def quality_score(affected_features: int, total_features: int) -> dict[str, float | int]:
+    """Feature-based vector quality: each affected feature counts once."""
+    if total_features <= 0:
+        return {
+            "total_features": 0,
+            "affected_features": 0,
+            "error_rate": 0.0,
+            "quality_score": 100.0,
+        }
+
+    affected_features = min(max(int(affected_features or 0), 0), int(total_features))
+    error_rate = affected_features / total_features * 100
+    return {
+        "total_features": int(total_features),
+        "affected_features": affected_features,
+        "error_rate": round(error_rate, 1),
+        "quality_score": round(100.0 - error_rate, 1),
+    }
+
 def inspect_image_quality(content: bytes) -> dict[str, Any]:
     with Image.open(BytesIO(content)) as image:
         gray = np.asarray(image.convert("L"), dtype=np.float32)
