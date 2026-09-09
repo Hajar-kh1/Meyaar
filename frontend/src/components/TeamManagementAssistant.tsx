@@ -241,7 +241,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         </header>
 
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
-          {!sentMessage && <><AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble><div className="ms-10 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">{copy.quick.map((item, index) => <button key={item.title} type="button" disabled={busy} onClick={() => void review(item.prompt)} className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-start transition hover:bg-blue-50 disabled:opacity-60 ${index ? "border-t border-slate-100" : ""}`}><span><span className="block text-sm font-bold text-[#071c33]">{item.title}</span><span className="mt-0.5 block text-[11px] text-slate-500">{item.hint}</span></span><span className="shrink-0 text-lg text-blue-600 rtl:rotate-180">→</span></button>)}</div></>}
+          {!sentMessage && <AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble>}
           {sentMessage && <div className="flex justify-end"><div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm leading-6 text-white">{sentMessage}</div></div>}
           {busy && !plan && <AssistantBubble><p className="text-slate-500">{copy.preparing}</p></AssistantBubble>}
 
