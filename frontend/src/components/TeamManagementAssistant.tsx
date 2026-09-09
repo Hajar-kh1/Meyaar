@@ -113,6 +113,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   async function review(messageOverride?: string) {
     const message = (messageOverride ?? instruction).trim();
     if (!message) return;
+    setInstruction("");
     setBusy(true); setError(""); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null); setSentMessage(message);
     try {
       const interpreted = await interpretTeamCommands(message);
@@ -137,7 +138,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
       setDirectoryMatches(Object.fromEntries(searches));
       setExistingSelections({});
       setCreateNew({});
-      setMemberSelections(selections); setPlan(next); setInstruction("");
+      setMemberSelections(selections); setPlan(next);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The assistant could not understand the request.");
     } finally { setBusy(false); }
