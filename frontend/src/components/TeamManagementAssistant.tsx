@@ -6,6 +6,7 @@ import type { AuthUser, ManagedTeamMemberOverview, ManagedTeamOverview, NewUserP
 import { useLanguage } from "@/components/LanguageProvider";
 
 type Props = { data: TeamDashboardData; onClose: () => void; onComplete: (user: AuthUser) => void };
+type ChatMessage = { role: "user" | "assistant"; text: string };
 
 // The LLM may use form-like examples for a vague request. They must never become
 // real account data; leave the review fields empty and ask the manager instead.
@@ -40,6 +41,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   const [conversationContext, setConversationContext] = useState("");
   const [conversationLanguage, setConversationLanguage] = useState<"ar" | "en" | null>(null);
   const conversationLanguageRef = useRef<"ar" | "en" | null>(null);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const recorderRef = useRef<MediaRecorder | null>(null);
 
   function browserSpeak(text: string) {
@@ -122,9 +124,10 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     if (!plan) return false;
     const conversationIsArabic = conversationLanguageRef.current ? conversationLanguageRef.current === "ar" : language === "ar";
     const normalized = message.trim().toLowerCase();
+    setChatHistory((history) => [...history, { role: "assistant", text: plan.reply ?? plan.summary }, { role: "user", text: message }]);
     setSentMessage(message); setInstruction(""); setAwaitingFollowUp(false); setError("");
     if (/^(موافق|وافق|نفذ|نفّذ|تمام نفذ|yes|confirm|approve|go ahead)$/i.test(normalized)) {
-      await execute();
+      await execute(undefined, undefined, undefined, true);
       return true;
     }
     const memberActionIndex = plan.actions.findIndex((action, index) => (action.action === "remove" || action.action === "change_role") && !memberSelections[index]);
@@ -136,7 +139,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
       if (selected) {
         const selections = { ...memberSelections, [memberActionIndex]: selected.user_id };
         setMemberSelections(selections);
-        await execute(plan, existingSelections, selections);
+        await execute(plan, existingSelections, selections, true);
       } else {
         setPlan({ ...plan, reply: conversationIsArabic ? "اختاري رقمًا صحيحًا من القائمة." : "Please choose a valid number from the list." });
       }
@@ -151,7 +154,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
       if (selected) {
         const selections = { ...existingSelections, [addIndex]: selected.user_id };
         setExistingSelections(selections);
-        await execute(plan, selections);
+        await execute(plan, selections, undefined, true);
         return true;
       }
       const email = message.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]?.toLowerCase();
@@ -161,7 +164,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         const username = action.suggested_username || action.name?.toLowerCase().replace(/\s+/g, ".") || "user";
         const nextPlan = { ...plan, actions, reply: conversationIsArabic ? `ممتاز، بإنشئ حساب ${action.name} باسم مستخدم ${username}، والدور ${action.role === "leader" ? "قائد فريق" : "عضو"}، وبرسل بيانات الدخول إلى ${email}.` : `Great. I’ll create ${action.name} with username ${username} as ${action.role}, and send the credentials to ${email}.` };
         setPlan(nextPlan);
-        await execute(nextPlan);
+        await execute(nextPlan, undefined, undefined, true);
         return true;
       }
       setPlan({ ...plan, reply: conversationIsArabic ? "أحتاج البريد الشخصي بصيغة صحيحة، مثل name@example.com." : "Please send a valid personal email, such as name@example.com." });
@@ -180,6 +183,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     }
     setInstruction("");
     if (await handlePendingReply(message)) return;
+    setChatHistory((history) => [...history, ...(awaitingFollowUp ? [{ role: "assistant" as const, text: conversationLanguageRef.current === "ar" ? "وش حابة أسوي لك بعد؟" : "What else can I help you with?" }] : []), { role: "user", text: message }]);
     setBusy(true); setError(""); setAwaitingFollowUp(false); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null); setSentMessage(message);
     try {
       const interpreted = await interpretTeamCommands(message, conversationContext);
@@ -226,7 +230,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         next.reply = /[\u0600-\u06FF]/.test(message) ? `لقيت أكثر من عضو محتمل. اختاري الرقم وبنفذ مباشرة:\n${choices}` : `I found multiple possible members. Choose a number and I’ll proceed immediately:\n${choices}`;
         setPlan({ ...next });
       }
-      if (unresolvedAddIndex < 0 && !needsMemberChoice && !needsSafetyConfirmation) await execute(next, {}, selections);
+      if (unresolvedAddIndex < 0 && !needsMemberChoice && !needsSafetyConfirmation) await execute(next, {}, selections, false, message);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The assistant could not understand the request.");
     } finally { setBusy(false); }
@@ -237,12 +241,13 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     setPlan({ ...plan, actions: plan.actions.map((action, actionIndex) => actionIndex === index ? { ...action, ...patch } : action) });
   }
 
-  async function execute(planOverride?: TeamCommandPlan, existingSelectionsOverride?: Record<number, string>, memberSelectionsOverride?: Record<number, string>) {
+  async function execute(planOverride?: TeamCommandPlan, existingSelectionsOverride?: Record<number, string>, memberSelectionsOverride?: Record<number, string>, planAlreadyArchived = false, sourceMessage?: string) {
     const activePlan = planOverride ?? plan;
     if (!activePlan) return;
     const conversationIsArabic = conversationLanguageRef.current ? conversationLanguageRef.current === "ar" : language === "ar";
     const activeExistingSelections = existingSelectionsOverride ?? existingSelections;
     const activeMemberSelections = memberSelectionsOverride ?? memberSelections;
+    if (!planAlreadyArchived && activePlan.reply) setChatHistory((history) => [...history, { role: "assistant", text: activePlan.reply ?? activePlan.summary }]);
     setBusy(true); setError("");
     const completed: string[] = [];
     try {
@@ -289,7 +294,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         }
       }
       if (activeTeamId) activeUser = await activateTeam(activeTeamId);
-      setConversationContext((current) => [current, `User: ${sentMessage}`, `Completed: ${completed.join(" ")}`].filter(Boolean).join("\n").slice(-6000));
+      setConversationContext((current) => [current, `User: ${sourceMessage ?? sentMessage}`, `Completed: ${completed.join(" ")}`].filter(Boolean).join("\n").slice(-6000));
       setPlan(null); setResults(completed); onComplete(activeUser);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The plan could not be completed.");
@@ -306,6 +311,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   function resetChat() { continueConversation(); }
 
   function continueConversation() {
+    if (results?.length) setChatHistory((history) => [...history, { role: "assistant", text: `${copy.completed}\n${results.join("\n")}` }]);
     setPlan(null); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null);
     setInstruction(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({});
     setAwaitingFollowUp(true);
@@ -342,7 +348,9 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
 
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
           {!sentMessage && <AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble>}
-          {sentMessage && <div className="flex justify-end"><div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm leading-6 text-white">{sentMessage}</div></div>}
+          {chatHistory.map((message, index) => message.role === "user"
+            ? <div key={index} className="flex justify-end"><div className="max-w-[82%] whitespace-pre-line rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm leading-6 text-white">{message.text}</div></div>
+            : <AssistantBubble key={index}><p className="whitespace-pre-line text-[#071c33]">{message.text}</p></AssistantBubble>)}
           {busy && !plan && <AssistantBubble><p className="text-slate-500">{copy.preparing}</p></AssistantBubble>}
           {awaitingFollowUp && <AssistantBubble><p className="font-semibold text-[#071c33]">{conversationIsArabic ? ["وش حابة أسوي لك بعد؟", "أنا معك، وش الطلب التالي؟", "تم، هل فيه شيء ثاني أساعدك فيه؟"][sentMessage.length % 3] : ["What else can I help you with?", "I’m ready for your next request.", "Done. Is there anything else you need?"][sentMessage.length % 3]}</p></AssistantBubble>}
 
