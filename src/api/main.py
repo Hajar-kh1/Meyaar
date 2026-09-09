@@ -1,10 +1,12 @@
 import os
 import smtplib
 import json
+import io
 import re
 import secrets
 import urllib.request
 import urllib.error
+import wave
 from difflib import SequenceMatcher
 from pathlib import Path
 from email.message import EmailMessage
@@ -504,7 +506,7 @@ def _interpret_team_command_batch(instruction: str, context: str | None = None) 
     is_arabic = bool(re.search(r"[\u0600-\u06FF]", instruction))
     llm = get_llm()
     if llm is not None:
-        prompt = """You are Meyaar's friendly Team Management Agent. Understand natural Arabic (including Saudi dialect) and English. Continue in the language used by the user in this conversation. Use the previous conversation context to resolve follow-ups and pronouns, but do not repeat an already completed action. Do not execute anything. Convert the new request into strict JSON only: {"reply":"a warm, concise conversational reply in the user's language","summary":"short plan summary in the user's language","actions":[...]}. Each action must use add, remove, create_team, delete_team, change_role, list_members, or team_summary and include name, email, team_name, role, suggested_username. Keep the user's order and infer ordinary phrasing such as 'ضيف محمد' or 'خل سارة ليدر'. Never invent identity data: use null for every name, email, team name, or username not explicitly provided. For add with a name but no email, keep the name and null email so the application can search the database first. If matching accounts exist, the application will ask the user to choose; if not, it will request a personal email. Destructive or role-changing operations always require UI confirmation. Never claim an action was executed. Previous context: """ + (context or "None") + "\nNew request: " + instruction
+        prompt = """You are Meyaar's friendly Team Management Agent. Understand natural Arabic (including Saudi dialect) and English. Continue in the language used by the user in this conversation. Use the previous conversation context to resolve follow-ups and pronouns, but do not repeat an already completed action. Vary your natural opening and wording; do not repeatedly say 'أبشر' or 'Sure'. Do not execute anything. Convert the new request into strict JSON only: {"reply":"a warm, concise conversational reply in the user's language","summary":"short plan summary in the user's language","actions":[...]}. Each action must use add, remove, create_team, delete_team, change_role, list_members, or team_summary and include name, email, team_name, role, suggested_username. Keep the user's order and infer ordinary phrasing such as 'ضيف محمد' or 'خل سارة ليدر'. Never invent identity data: use null for every name, email, team name, or username not explicitly provided. For add with a name but no email, keep the name and null email so the application can search the database first. If matching accounts exist, the application will ask the user to choose; if not, it will request a personal email. Destructive or role-changing operations always require UI confirmation. Never claim an action was executed. Previous context: """ + (context or "None") + "\nNew request: " + instruction
         try:
             parsed = json.loads(_strip_json_fence(str(llm.invoke(prompt).content)))
             actions = parsed.get("actions") if isinstance(parsed, dict) else None
@@ -525,14 +527,17 @@ def _interpret_team_command_batch(instruction: str, context: str | None = None) 
                     normalized.append(normalized_action)
                 if normalized:
                     default_summary = f"تم تجهيز {len(normalized)} إجراءات للمراجعة" if is_arabic else f"{len(normalized)} actions ready for review"
-                    default_reply = "أبشر، جهزت طلبك للمراجعة." if is_arabic else "Sure — I prepared your request for review."
+                    arabic_replies = ("تمام، جهزت طلبك للمراجعة.", "حاضر، رتبت لك المطلوب وباقي تأكيدك.", "على العين، هذه تفاصيل الطلب قبل التنفيذ.")
+                    english_replies = ("All set — here is the request for review.", "Got it. Please review these details before I proceed.", "I have prepared the requested changes for your confirmation.")
+                    reply_index = sum(map(ord, instruction + (context or ""))) % 3
+                    default_reply = arabic_replies[reply_index] if is_arabic else english_replies[reply_index]
                     return {"reply": str(parsed.get("reply") or default_reply), "summary": str(parsed.get("summary") or default_summary), "actions": normalized}
         except Exception:
             pass
     parts = [part.strip() for part in re.split(r"\s*(?:،|,|\bثم\b|\bوبعدين\b|\band\b)\s*", instruction, flags=re.I) if part.strip()]
     actions = [_interpret_new_user(part) for part in parts[:12]]
     return {
-        "reply": "أبشر، جهزت طلبك وحددت البيانات التي نحتاجها قبل التنفيذ." if is_arabic else "Sure — I prepared your request and identified anything needed before execution.",
+        "reply": ("تمام، جهزت طلبك وحددت البيانات المطلوبة قبل التنفيذ." if sum(map(ord, instruction)) % 2 == 0 else "حاضر، رتبت المطلوب وباقي مراجعتك قبل التنفيذ.") if is_arabic else "I prepared your request and identified anything needed before execution.",
         "summary": f"تم تجهيز {len(actions)} إجراءات للمراجعة" if is_arabic else f"{len(actions)} actions ready for review",
         "actions": actions,
     }
@@ -617,24 +622,48 @@ async def synthesize_team_agent_voice(body: VoiceSynthesisRequest, user: dict = 
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             raise RuntimeError("GROQ_API_KEY is not configured for team voice responses.")
-        payload = json.dumps({
-            "model": "canopylabs/orpheus-arabic-saudi",
-            "voice": body.voice or "lulwa",
-            "input": body.text,
-            "response_format": "wav",
-        }).encode("utf-8")
-        request = urllib.request.Request(
-            "https://api.groq.com/openai/v1/audio/speech",
-            data=payload,
-            headers={"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json", "Accept": "audio/wav", "User-Agent": "Meyaar-Team-Agent/1.0"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=45) as response:
-                return response.read()
-        except urllib.error.HTTPError as error:
-            detail = error.read().decode("utf-8", errors="replace").strip()
-            raise RuntimeError(f"Groq team voice failed ({error.code}): {detail or error.reason}") from error
+        words = body.text.split()
+        chunks: list[str] = []
+        current = ""
+        for word in words:
+            candidate = f"{current} {word}".strip()
+            if len(candidate) > 185 and current:
+                chunks.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            chunks.append(current)
+
+        wav_chunks: list[bytes] = []
+        for chunk in chunks:
+            payload = json.dumps({"model": "canopylabs/orpheus-arabic-saudi", "voice": body.voice or "lulwa", "input": chunk, "response_format": "wav"}).encode("utf-8")
+            request = urllib.request.Request(
+                "https://api.groq.com/openai/v1/audio/speech",
+                data=payload,
+                headers={"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json", "Accept": "audio/wav", "User-Agent": "Meyaar-Team-Agent/1.0"},
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=45) as response:
+                    wav_chunks.append(response.read())
+            except urllib.error.HTTPError as error:
+                detail = error.read().decode("utf-8", errors="replace").strip()
+                raise RuntimeError(f"Groq team voice failed ({error.code}): {detail or error.reason}") from error
+
+        if len(wav_chunks) == 1:
+            return wav_chunks[0]
+        output = io.BytesIO()
+        with wave.open(io.BytesIO(wav_chunks[0]), "rb") as first:
+            params = first.getparams()
+            frames = [first.readframes(first.getnframes())]
+        for chunk in wav_chunks[1:]:
+            with wave.open(io.BytesIO(chunk), "rb") as source:
+                frames.append(source.readframes(source.getnframes()))
+        with wave.open(output, "wb") as target:
+            target.setparams(params)
+            target.writeframes(b"".join(frames))
+        return output.getvalue()
 
     try:
         audio = await run_in_threadpool(synthesize)

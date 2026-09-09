@@ -200,7 +200,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
       }
       if (activeTeamId) activeUser = await activateTeam(activeTeamId);
       setConversationContext((current) => [current, `User: ${sentMessage}`, `Completed: ${completed.join(" ")}`].filter(Boolean).join("\n").slice(-6000));
-      setResults(completed); onComplete(activeUser);
+      setPlan(null); setResults(completed); onComplete(activeUser);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The plan could not be completed.");
     } finally { setBusy(false); }
@@ -254,7 +254,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           {!sentMessage && <AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble>}
           {sentMessage && <div className="flex justify-end"><div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm leading-6 text-white">{sentMessage}</div></div>}
           {busy && !plan && <AssistantBubble><p className="text-slate-500">{copy.preparing}</p></AssistantBubble>}
-          {awaitingFollowUp && <AssistantBubble><p className="font-semibold text-[#071c33]">{conversationIsArabic ? "أبشري، وش تبين أخدمك فيه بعد؟" : "Of course. What else can I help you with?"}</p></AssistantBubble>}
+          {awaitingFollowUp && <AssistantBubble><p className="font-semibold text-[#071c33]">{conversationIsArabic ? ["وش حابة أسوي لك بعد؟", "أنا معك، وش الطلب التالي؟", "تم، هل فيه شيء ثاني أساعدك فيه؟"][sentMessage.length % 3] : ["What else can I help you with?", "I’m ready for your next request.", "Done. Is there anything else you need?"][sentMessage.length % 3]}</p></AssistantBubble>}
 
           {plan && <AssistantBubble wide><div className="flex items-start justify-between gap-2"><div><p className="font-semibold text-[#071c33]">{plan.reply ?? plan.summary}</p>{plan.reply && <p className="mt-1 text-xs text-slate-500">{plan.summary}</p>}</div><button type="button" onClick={() => speak(plan.reply ?? plan.summary)} aria-label={conversationIsArabic ? "استمع للرد" : "Listen to response"} className="shrink-0 rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700">🔊</button></div><div className="mt-3 space-y-2">{plan.actions.map((action, index) => (
             <article key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
