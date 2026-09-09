@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 export type Language = "en" | "ar";
 
@@ -149,7 +149,6 @@ const translations: Record<string, string> = {
   "Welcome": "مرحبًا",
   "Manage teams": "إدارة الفرق",
   "Saved files": "الملفات المحفوظة",
-  "Detected errors": "الأخطاء المكتشفة",
   "Compliance": "نسبة الالتزام",
   "Needs review": "تحتاج مراجعة",
   "Across all analyses": "في جميع التحليلات",
@@ -174,7 +173,122 @@ const translations: Record<string, string> = {
   "Upload the first file": "ارفع أول ملف",
   "Vector validation": "فحص البيانات المتجهة",
   "Imagery analysis": "تحليل الصور",
+  "Loading...": "جارٍ التحميل...",
+  "Sign in": "تسجيل الدخول",
+  "Create account": "إنشاء حساب",
+  "Access your analyses and saved geospatial results.": "ادخل إلى تحليلاتك ونتائجك الجغرافية المحفوظة.",
+  "Name": "الاسم",
+  "Email": "البريد الإلكتروني",
+  "Email or username": "البريد الإلكتروني أو اسم المستخدم",
+  "Password": "كلمة المرور",
+  "Please wait...": "يرجى الانتظار...",
+  "New? Create an account": "مستخدم جديد؟ أنشئ حسابًا",
+  "Already have an account? Sign in": "لديك حساب؟ سجّل الدخول",
+  "Create your private password": "أنشئ كلمة مرور خاصة بك",
+  "Temporary password": "كلمة المرور المؤقتة",
+  "New password": "كلمة المرور الجديدة",
+  "Confirm password": "تأكيد كلمة المرور",
+  "Set password and continue": "تعيين كلمة المرور والمتابعة",
+  "Manage your teams": "إدارة فرقك",
+  "Create your own team or join an existing team. Your role is assigned securely inside each team.": "أنشئ فريقك أو انضم إلى فريق موجود. يتم تعيين صلاحيتك بأمان داخل كل فريق.",
+  "Create a team": "إنشاء فريق",
+  "You become the Manager": "ستصبح مدير الفريق",
+  "Join a team": "الانضمام إلى فريق",
+  "You join as a Member": "ستنضم كعضو",
+  "Team name": "اسم الفريق",
+  "Invitation code": "رمز الدعوة",
+  "Create team": "إنشاء الفريق",
+  "Join team": "الانضمام للفريق",
+  "A Manager can later promote a Member to Team Leader. Users cannot grant themselves elevated permissions.": "يمكن للمدير ترقية العضو إلى قائد فريق لاحقًا، ولا يمكن للمستخدم منح نفسه صلاحيات أعلى.",
+  "Personal account information": "معلومات الحساب الشخصية",
+  "Current team": "الفريق الحالي",
+  "No active team": "لا يوجد فريق نشط",
+  "Current role": "الدور الحالي",
+  "Teams": "الفرق",
+  "My teams": "فرقي",
+  "Change password": "تغيير كلمة المرور",
+  "Other active sessions will be signed out.": "سيتم تسجيل خروج الجلسات النشطة الأخرى.",
+  "Current password": "كلمة المرور الحالية",
+  "Confirm new password": "تأكيد كلمة المرور الجديدة",
+  "Update password": "تحديث كلمة المرور",
+  "Password changed successfully.": "تم تغيير كلمة المرور بنجاح.",
+  "New passwords do not match.": "كلمتا المرور الجديدتان غير متطابقتين.",
+  "Password could not be changed.": "تعذر تغيير كلمة المرور.",
+  "Saved analyses": "التحليلات المحفوظة",
+  "Loading saved analyses...": "جارٍ تحميل التحليلات المحفوظة...",
+  "Select files to export together.": "حدد الملفات لتصديرها معًا.",
+  "Select all": "تحديد الكل",
+  "Preparing...": "جارٍ التجهيز...",
+  "No saved analyses yet.": "لا توجد تحليلات محفوظة حتى الآن.",
+  "Folder analysis": "تحليل المجلد",
+  "Uploaded files": "الملفات المرفوعة",
+  "Choose a file to review its errors and recommendations.": "اختر ملفًا لمراجعة أخطائه وتوصياته.",
+  "View": "عرض",
+  "Back to uploaded files": "العودة إلى الملفات المرفوعة",
+  "Run ID": "معرّف التشغيل",
+  "Assistant requires a vector run": "يتطلب المساعد تحليل بيانات متجهة",
+  "Upload vector data so the assistant can answer from stored validation results.": "ارفع بيانات متجهة ليجيب المساعد اعتمادًا على نتائج الفحص المحفوظة.",
+  "Choose a folder": "اختر مجلدًا",
+  "or": "أو",
+  "Home": "الرئيسية",
+  "New check": "فحص جديد",
+  "Settings": "الإعدادات",
+  "Team members": "أعضاء الفريق",
+  "Member": "العضو",
+  "Role": "الدور",
+  "Analyses": "التحليلات",
+  "Detected errors": "الأخطاء المكتشفة",
+  "Hours": "الساعات",
+  "Progress": "التقدم",
+  "Joined": "تاريخ الانضمام",
+  "Team Leader": "قائد الفريق",
+  "Manager": "مدير",
+  "Online": "متصل",
+  "Offline": "غير متصل",
+  "Username account": "حساب باسم مستخدم",
+  "Invite employee": "دعوة موظف",
+  "Share invitation": "مشاركة الدعوة",
+  "Download QR": "تنزيل رمز QR",
+  "Cancel": "إلغاء",
+  "Delete permanently": "حذف نهائي",
+  "Deleting...": "جارٍ الحذف...",
+  "Close": "إغلاق",
+  "Image preview unavailable.": "معاينة الصورة غير متاحة.",
+  "Quality element": "عنصر الجودة",
+  "Feature ID": "معرّف العنصر",
+  "View all details": "عرض جميع التفاصيل",
+  "Show error on map": "عرض الخطأ على الخريطة",
+  "No errors found": "لا توجد أخطاء",
+  "critical": "حرجة",
+  "high": "عالية",
+  "medium": "متوسطة",
+  "low": "منخفضة",
+  "Member name": "اسم العضو",
+  "Personal email": "البريد الإلكتروني الشخصي",
+  "Choose member": "اختر عضوًا",
+  "Edit": "تعديل",
+  "Confirm": "تأكيد",
+  "Working…": "جارٍ التنفيذ…",
 };
+
+const dynamicTranslations: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
+  [/^Welcome, (.+)$/, (match) => `مرحبًا، ${match[1]}`],
+  [/^(\d+) files$/, (match) => `${match[1]} ملفات`],
+  [/^(\d+) errors?$/, (match) => `${match[1]} أخطاء`],
+  [/^(\d+) selected$/, (match) => `تم تحديد ${match[1]}`],
+  [/^Scan to join (.+)$/, (match) => `امسح الرمز للانضمام إلى ${match[1]}`],
+  [/^Delete (.+)\?$/, (match) => `حذف ${match[1]}؟`],
+];
+
+function translatedText(text: string) {
+  const direct = translations[text];
+  if (direct) return direct;
+  for (const [pattern, replace] of dynamicTranslations) {
+    const match = text.match(pattern);
+    if (match) return replace(match);
+  }
+  return text;
+}
 
 interface LanguageContextValue {
   language: Language;
@@ -188,11 +302,68 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguage] = useState<Language>("en");
   const direction = language === "ar" ? "rtl" : "ltr";
+  const textOriginals = useRef(new WeakMap<Node, string>());
+  const attributeOriginals = useRef(new WeakMap<Element, Map<string, string>>());
 
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = direction;
   }, [direction, language]);
+
+  useEffect(() => {
+    const root = document.body;
+    const originals = textOriginals.current;
+    const savedAttributes = attributeOriginals.current;
+    const localize = (scope: Node) => {
+      const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+      const nodes: Text[] = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+      if (scope.nodeType === Node.TEXT_NODE) nodes.unshift(scope as Text);
+      for (const node of nodes) {
+        const parent = node.parentElement;
+        if (!parent || parent.closest("script, style, pre, code")) continue;
+        const original = originals.get(node) ?? node.data;
+        originals.set(node, original);
+        const trimmed = original.trim();
+        if (!trimmed) continue;
+        const next = language === "ar" ? translatedText(trimmed) : trimmed;
+        const localized = original.replace(trimmed, next);
+        if (node.data !== localized) node.data = localized;
+      }
+      const elements = scope.nodeType === Node.ELEMENT_NODE
+        ? [scope as Element, ...(scope as Element).querySelectorAll("[placeholder], [title], [aria-label]")]
+        : [];
+      for (const element of elements) {
+        const saved = savedAttributes.get(element) ?? new Map<string, string>();
+        for (const name of ["placeholder", "title", "aria-label"]) {
+          const current = element.getAttribute(name);
+          if (!current) continue;
+          if (!saved.has(name)) saved.set(name, current);
+          const original = saved.get(name)!;
+          element.setAttribute(name, language === "ar" ? translatedText(original) : original);
+        }
+        savedAttributes.set(element, saved);
+      }
+    };
+    localize(root);
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === "characterData") {
+          const node = record.target as Text;
+          const original = originals.get(node);
+          if (original) {
+            const trimmed = original.trim();
+            const expected = original.replace(trimmed, language === "ar" ? translatedText(trimmed) : trimmed);
+            if (node.data !== expected) originals.set(node, node.data);
+          }
+          localize(node);
+        }
+        else record.addedNodes.forEach(localize);
+      }
+    });
+    observer.observe(root, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [language]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("meyaar-language");
