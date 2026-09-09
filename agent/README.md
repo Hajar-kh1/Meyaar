@@ -152,27 +152,27 @@ cp agent/.env.example agent/.env   # edit MEYAAR_DATABASE_URL if needed
 cd ~/Desktop/tuwiq-capstone/Meyaar
 
 # offline demo (no Postgres needed) against the sample fixture:
-agent/.venv/bin/python -m agent.cli analyze 8f0a1b2c-3d4e-4f5a-8b9c-0d1e2f3a4b5c \
+uv run python -m agent.cli analyze 8f0a1b2c-3d4e-4f5a-8b9c-0d1e2f3a4b5c \
     --demo agent/tests/fixtures/sample_run.json
 
 # against the team PostGIS (needs a real run_id in validation_results):
-agent/.venv/bin/python -m agent.cli analyze <run_uuid>
+uv run python -m agent.cli analyze <run_uuid>
 
 # API (standalone during development):
-agent/.venv/bin/uvicorn agent.api.app:app --reload
+uv run uvicorn agent.api.app:app --reload
 #   POST /api/validation/{run_id}/analyze        (analysis + remediation)
 #   GET  /api/validation/{run_id}/analysis
 #   GET  /api/validation/{run_id}/remediation    (audit / review queue)
 #   POST /api/validation/{run_id}/chat        {"question": "why is BLD_102 flagged?"}
 
 # Chat about a run's engine results (needs MEYAAR_LLM_API_KEY):
-agent/.venv/bin/python -m agent.cli chat <run_id>                    # interactive REPL
-agent/.venv/bin/python -m agent.cli chat <run_id> --ask "What should I fix first?"
-agent/.venv/bin/python -m agent.cli chat <run_id> --ask "..." --speak   # read answer aloud (macOS say)
+uv run python -m agent.cli chat <run_id>                    # interactive REPL
+uv run python -m agent.cli chat <run_id> --ask "What should I fix first?"
+uv run python -m agent.cli chat <run_id> --ask "..." --speak   # read answer aloud (macOS say)
 
 # Voice in the chat UI (http://127.0.0.1:8000/): 🎤 = ask by voice (browser
 # Web Speech API), 🔊 = read the answer aloud. Engines/config in agent/voice.py.
-agent/.venv/bin/python -c "from agent.voice import available_engines; print(available_engines())"
+uv run python -c "from agent.voice import available_engines; print(available_engines())"
 
 # Backend teammate integration: mount the router
 #   from agent.api.router import router
@@ -188,7 +188,7 @@ runs fully deterministically — same JSON schema, zero API calls, CI-safe.
 ## Test
 
 ```bash
-agent/.venv/bin/python -m pytest agent/tests -q
+uv run pytest agent/tests -q
 # 96 tests: registry semantics for all 13 rules, tool + SQL-guard behaviour,
 # full-run analysis, heuristic classification, missing context,
 # DB failures, malformed/lying LLM output, API endpoints, spatial

@@ -17,8 +17,8 @@ docker run -d --name meyaar-postgis -e POSTGRES_DB=meyaar_db \
 docker exec -i meyaar-postgis psql -U postgres -d meyaar_db \
   < agent/schema/agent_error_analysis.sql
 
-# python deps (once): agent/.venv already has them; partner pipeline needs:
-uv pip install --python agent/.venv/bin/python -r agent/requirements.txt geopandas geoalchemy2 pyogrio pyarrow
+# Python dependencies (once), from the repository root:
+uv sync
 
 # data (already present): data/riyadh_roads_clean.geojson, data/riyadh_buildings_clean.geojson
 ```
@@ -38,16 +38,16 @@ export MEYAAR_DATABASE_URL="postgresql+psycopg2://postgres@localhost:5432/meyaar
 export MEYAAR_ALLOW_LLM=false          # deterministic path (no API key needed)
 
 # 1) insert + run rules -> note the run_id (partner code):
-PYTHONPATH=. agent/.venv/bin/python - <<'PY'
+PYTHONPATH=. uv run python - <<'PY'
 from src.pipeline import process_dataset
 print(process_dataset("data/riyadh_roads_clean.geojson"))
 PY
 
 # 2) agent CLI on that run_id:
-agent/.venv/bin/python -m agent.cli analyze <run_id>
+uv run python -m agent.cli analyze <run_id>
 
 # 3) API:
-agent/.venv/bin/uvicorn agent.api.app:app --reload
+uv run uvicorn agent.api.app:app --reload
 curl -X POST localhost:8000/api/validation/<run_id>/analyze
 curl localhost:8000/api/validation/<run_id>/analysis
 ```
@@ -62,7 +62,7 @@ provider), then re-run step 2. Agent_model in the saved rows switches from
 ## Unit tests (no DB needed)
 
 ```bash
-MEYAAR_ALLOW_LLM=false agent/.venv/bin/python -m pytest agent/tests -q   # 48 passed
+MEYAAR_ALLOW_LLM=false uv run pytest agent/tests -q   # 48 passed
 ```
 
 ## Cleanup

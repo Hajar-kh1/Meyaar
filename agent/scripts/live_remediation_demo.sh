@@ -23,10 +23,10 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."          # repo root (tuwiq-capstone/Meyaar)
 
 DB_URL="${MEYAAR_DATABASE_URL:-postgresql+psycopg2://postgres@localhost:5432/meyaar_db}"
-PY=agent/.venv/bin/python
+PY=(uv run python)
 
 echo "[1/6] reseed buildings (500 sample rows)..."
-PYTHONPATH=. "$PY" agent/scripts/_live_reseed.py buildings data/riyadh_buildings_clean.geojson 500 >/dev/null
+PYTHONPATH=. "${PY[@]}" agent/scripts/_live_reseed.py buildings data/riyadh_buildings_clean.geojson 500 >/dev/null
 
 echo "[2/6] inject standard error fixtures..."
 docker exec -i meyaar-postgis psql -U postgres -d meyaar_db -v ON_ERROR_STOP=1 \
@@ -37,11 +37,11 @@ docker exec -i meyaar-postgis psql -U postgres -d meyaar_db -v ON_ERROR_STOP=1 \
     < agent/scripts/_live_inject_spike.sql >/dev/null
 
 echo "[4/6] run rule engine (buildings)..."
-RUN_ID="$(PYTHONPATH=. "$PY" agent/scripts/_live_run_layer.py buildings | sed -n 's/^run_id: //p')"
+RUN_ID="$(PYTHONPATH=. "${PY[@]}" agent/scripts/_live_run_layer.py buildings | sed -n 's/^run_id: //p')"
 echo "      run_id: $RUN_ID"
 
 echo "[5/6] run agent analysis + remediation (template path)..."
-MEYAAR_ALLOW_LLM=false MEYAAR_DATABASE_URL="$DB_URL" "$PY" -m agent.cli analyze "$RUN_ID" >/dev/null 2>&1 || true
+MEYAAR_ALLOW_LLM=false MEYAAR_DATABASE_URL="$DB_URL" "${PY[@]}" -m agent.cli analyze "$RUN_ID" >/dev/null 2>&1 || true
 
 echo "[6/6] remediation audit for run $RUN_ID"
 docker exec meyaar-postgis psql -U postgres -d meyaar_db -P pager=off -c "

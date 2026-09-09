@@ -198,7 +198,7 @@ Trainer scenario coverage:
 9. No validation errors -> clean path preserved (load -> summarize, no
    `[remediate]` trace, empty records)
 
-Run: `MEYAAR_ALLOW_LLM=false agent/.venv/bin/python -m pytest agent/tests -q`
+Run: `MEYAAR_ALLOW_LLM=false uv run pytest agent/tests -q`
 
 ## 8. Example end-to-end flows
 

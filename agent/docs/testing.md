@@ -6,7 +6,7 @@ Four layers of testing, from zero-dependency to full live system.
 
 ```bash
 cd ~/Desktop/tuwiq-capstone/Meyaar
-MEYAAR_ALLOW_LLM=false agent/.venv/bin/python -m pytest agent/tests -q
+MEYAAR_ALLOW_LLM=false uv run pytest agent/tests -q
 # expect: 96 passed
 ```
 
@@ -55,11 +55,11 @@ bash agent/scripts/live_remediation_demo.sh
 export MEYAAR_DATABASE_URL="postgresql+psycopg2://postgres@localhost:5432/meyaar_db"
 
 # A) produce a run from a file (partner pipeline) and read the run_id:
-PYTHONPATH=. agent/.venv/bin/python -c \
+PYTHONPATH=. uv run python -c \
   "from src.pipeline import process_dataset; print(process_dataset('data/riyadh_roads_clean.geojson'))"
 
 # B) analyze that run (or any run_id already in public.validation_results):
-agent/.venv/bin/python -m agent.cli analyze <run_id>
+uv run python -m agent.cli analyze <run_id>
 
 # C) re-analyze is idempotent (upsert on run_id+result_id) — safe to rerun.
 ```
@@ -77,10 +77,10 @@ With a key in agent/.env (see agent/.env: MEYAAR_LLM_API_KEY, MEYAAR_LLM_BASE_UR
 
 ```bash
 # LLM path (default once key is set):
-agent/.venv/bin/python -m agent.cli analyze <run_id>
+uv run python -m agent.cli analyze <run_id>
 
 # Force deterministic for comparison (same JSON shape):
-MEYAAR_ALLOW_LLM=false agent/.venv/bin/python -m agent.cli analyze <run_id>
+MEYAAR_ALLOW_LLM=false uv run python -m agent.cli analyze <run_id>
 ```
 
 Verify the LLM was used: re-fetch shows agent_model = your model (not template-fallback),
@@ -90,7 +90,7 @@ completes via template fallback (by design).
 ## 5) API endpoints
 
 ```bash
-agent/.venv/bin/uvicorn agent.api.app:app --reload   # http://127.0.0.1:8000
+uv run uvicorn agent.api.app:app --reload   # http://127.0.0.1:8000
 
 curl -X POST http://127.0.0.1:8000/api/validation/<run_id>/analyze
 # {"run_id": "...", "status": "completed", "total_errors_analyzed": 9}

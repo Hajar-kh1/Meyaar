@@ -107,7 +107,7 @@ docker compose -f docker-compose.vector-dev.yml down
 ## Run the API
 
 ```bash
-python -m uvicorn src.api.main:app --reload
+uv run uvicorn src.api.main:app --reload
 ```
 
 Open the interactive API documentation:
@@ -240,7 +240,7 @@ The chat endpoint requires the Agent's LLM configuration.
 Run all Backend and Vision tests:
 
 ```bash
-python -m pytest test_vision.py test_api.py test_vector_api.py -v
+uv run pytest test_vision.py test_api.py test_vector_api.py -v
 ```
 
 Expected result:
@@ -283,7 +283,7 @@ It calculates the following metrics for each supported road error type:
 Run the evaluator:
 
 ```bash
-python -m tools.vector_benchmark_evaluator \
+uv run python -m tools.vector_benchmark_evaluator \
   --ground-truth "path/to/test_ground_truth.csv" \
   --run-id "validation-run-id" \
   --output-directory "outputs/vector_benchmark"

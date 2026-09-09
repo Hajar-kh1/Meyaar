@@ -78,7 +78,7 @@ def info():
             "model": settings.llm_model if settings.llm_enabled else "template-fallback",
         },
         "voice": available_engines(),
-        "hint": "run_id is a UUID from public.validation_results (see CLI: python -m agent.cli analyze --help)",
+        "hint": "run_id is a UUID from public.validation_results (see CLI: uv run python -m agent.cli analyze --help)",
     }
 
 

@@ -60,11 +60,14 @@ Meyaar/
 │   ├── map_elements/         # Preview-only map element suggestions
 │   └── api/                  # Agent API routes
 ├── docker-compose.vector-dev.yml
-├── requirements.txt
+├── pyproject.toml            # Python dependencies and tool configuration
+├── uv.lock                   # Reproducible Python environment lockfile
 └── .env.example
 ```
 
 ## Run locally (Windows)
+
+Install [uv](https://docs.astral.sh/uv/) once, then run all Python commands from the repository root. `uv sync` creates and maintains `.venv` automatically from `uv.lock`; manual activation is not required.
 
 ### 1. Configure local environment
 
@@ -88,8 +91,8 @@ docker ps
 ### 3. Start the backend
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
-python -m uvicorn src.api.main:app --reload --port 8000
+uv sync
+uv run uvicorn src.api.main:app --reload --port 8000
 ```
 
 API documentation: `http://127.0.0.1:8000/docs`

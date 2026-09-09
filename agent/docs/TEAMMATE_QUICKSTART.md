@@ -16,13 +16,8 @@ Full details: `docs/live-testing.md` and `docs/INTEGRATION.md`.
 git clone https://github.com/NoufHar/Meyaar.git     # or: git pull inside your clone
 cd Meyaar
 
-# Python 3.12 venv with uv (macOS/Linux):
-uv venv agent/.venv --python 3.12
-uv pip install --python agent/.venv/bin/python -r agent/requirements.txt geopandas geoalchemy2 pyogrio pyarrow
-
-# Windows without uv: install Python 3.12, then
-#   python -m venv agent/.venv
-#   agent/.venv/Scripts/python -m pip install -r agent/requirements.txt geopandas geoalchemy2 pyogrio pyarrow
+# Create the locked Python environment (all platforms):
+uv sync
 ```
 
 ## 2. Start PostGIS (Docker)
@@ -58,7 +53,7 @@ cp agent/.env.example agent/.env
 # edit agent/.env ->  MEYAAR_LLM_API_KEY=sk-or-...   (OpenRouter)
 #                     MEYAAR_LLM_MODEL=minimax/minimax-m3:free   (already set)
 ```
-Verify: `agent/.venv/bin/python -c "from agent.core.config import settings; print(settings.llm_enabled)"` → True
+Verify: `uv run python -c "from agent.core.config import settings; print(settings.llm_enabled)"` → True
 
 ## 4. Generate a run + analyze + chat (needs data files, e.g. data/riyadh_roads_clean.geojson)
 
@@ -75,18 +70,18 @@ bash agent/scripts/live_remediation_demo.sh
 Or manual (see docs/live-testing.md). Then:
 ```bash
 export MEYAAR_DATABASE_URL="postgresql+psycopg2://postgres@localhost:5432/meyaar_db"
-agent/.venv/bin/python -m agent.cli analyze <run_id>
-agent/.venv/bin/python -m agent.cli chat <run_id> --ask "What should I fix first?"
+uv run python -m agent.cli analyze <run_id>
+uv run python -m agent.cli chat <run_id> --ask "What should I fix first?"
 ```
 
 ## 5. Run the UI + API
 
 ```bash
 # standalone (local dev; MEYAAR_DEV_NO_AUTH=*** skips the backend login layer):
-MEYAAR_DEV_NO_AUTH=1 agent/.venv/bin/uvicorn agent.api.app:app --reload
+MEYAAR_DEV_NO_AUTH=1 uv run uvicorn agent.api.app:app --reload
 
 # or the production backend app (login + teams + run access):
-agent/.venv/bin/uvicorn src.api.main:app --reload
+uv run uvicorn src.api.main:app --reload
 ```
 - http://localhost:8000/  → chat UI (paste a run UUID → Analyze run → Ask; 🎤 voice, 🔊, read-aloud)
 - http://localhost:8000/docs → OpenAPI docs (analyze / analysis / remediation / chat)
@@ -112,7 +107,7 @@ Your container is local. For one shared set of runs, either:
 ## 6. Sanity checks
 
 ```bash
-MEYAAR_ALLOW_LLM=false agent/.venv/bin/python -m pytest agent/tests -q   # 96 passed, no DB needed
+MEYAAR_ALLOW_LLM=false uv run pytest agent/tests -q   # 96 passed, no DB needed
 docker exec meyaar-postgis pg_isready -U postgres -h localhost           # DB up
 ```
 

@@ -3,10 +3,10 @@
 Examples (from repository root):
 
     # against the team Postgres (needs meyaar_db + rule engine run present)
-    python -m agent.cli analyze 8f3a...-uuid
+    uv run python -m agent.cli analyze 8f3a...-uuid
 
     # offline demo against an in-memory store seeded from a fixture file
-    python -m agent.cli analyze 8f3a...-uuid --demo agent/tests/fixtures/sample_run.json
+    uv run python -m agent.cli analyze 8f3a...-uuid --demo agent/tests/fixtures/sample_run.json
 """
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def _cmd_chat(args) -> int:
               "chat expects a run_id from public.validation_results "
               "(a UUID like 8f0a1b2c-...), NOT a rule id such as RD001.\n"
               "Run an analysis first to get one:\n"
-              "  python -m src.pipeline  # or  bash agent/scripts/live_test.sh", file=sys.stderr)
+              "  uv run python -m src.pipeline  # or  bash agent/scripts/live_test.sh", file=sys.stderr)
         return 2
 
     repo = PostgresRepository()
@@ -72,7 +72,7 @@ def _cmd_chat(args) -> int:
               "Fix: edit agent/.env -> MEYAAR_LLM_API_KEY=<your openrouter key>\n"
               "and make sure MEYAAR_ALLOW_LLM is NOT 'false' in this shell "
               "(run: unset MEYAAR_ALLOW_LLM).\n"
-              "Check: agent/.venv/bin/python -c "
+              "Check: uv run python -c "
               "\"from agent.core.config import settings; "
               "print(settings.llm_enabled, len(settings.llm_api_key))\"",
               file=sys.stderr)

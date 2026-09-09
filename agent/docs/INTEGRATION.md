@@ -74,7 +74,7 @@ ORDER BY max(detected_at) DESC;
 
 ```bash
 cd ~/Desktop/tuwiq-capstone/Meyaar
-MEYAAR_DEV_NO_AUTH=*** agent/.venv/bin/uvicorn agent.api.app:app --reload
+MEYAAR_DEV_NO_AUTH=*** uv run uvicorn agent.api.app:app --reload
 # Chat UI: http://127.0.0.1:8000/   ·  OpenAPI docs: http://127.0.0.1:8000/docs
 ```
 
