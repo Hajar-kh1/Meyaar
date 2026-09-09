@@ -295,6 +295,12 @@ textarea:focus-visible {
 .dark .meyaar-app-sidebar nav button:hover { background: #103b3b; color: #65e0c3; }
 .dark .meyaar-app-sidebar nav button.bg-\[\#dcebe5\] { background: #0d4a42; color: #63e2c4; }
 .dark .meyaar-app-sidebar .text-\[\#465671\] { color: #a9bec4; }
+.dark .meyaar-sidebar-user { border-color: #173c46; color: #e7eff1; }
+.dark .meyaar-sidebar-user > span:first-child {
+  background: #0b574c;
+  border-color: #147866;
+  color: #8af0d8;
+}
 
 .dark .meyaar-app-header {
   background-color: rgb(7 28 36 / .96);

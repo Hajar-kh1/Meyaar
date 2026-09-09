@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import { useLanguage } from "@/components/LanguageProvider";
+import type { AuthUser } from "@/types/analysis";
 
 export type AppView = "dashboard" | "team" | "profile" | "upload" | "analysis" | "reports" | "history" | "assistant";
 
 interface AppSidebarProps {
+  user: AuthUser;
   activeView: AppView;
   onNavigate: (view: AppView) => void;
   onLogout: () => void | Promise<void>;
@@ -27,8 +29,13 @@ function SidebarIcon({ name }: { name: "home" | "check" | "reports" | "history" 
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9"/></svg>;
 }
 
-export default function AppSidebar({ activeView, onNavigate, onLogout }: AppSidebarProps) {
+export default function AppSidebar({ user, activeView, onNavigate, onLogout }: AppSidebarProps) {
   const { language } = useLanguage();
+  const role = user.role === "manager"
+    ? (language === "ar" ? "مدير الفريق" : "Manager")
+    : user.role === "leader"
+      ? (language === "ar" ? "قائد الفريق" : "Team Leader")
+      : (language === "ar" ? "محلل بيانات" : "Data Analyst");
   return (
     <aside className="meyaar-app-sidebar fixed inset-x-0 bottom-0 z-[3000] flex shrink-0 flex-col border-e border-[#e1e6e3] bg-[#fdfefc] text-[#17332f] shadow-[0_-8px_30px_rgba(7,45,38,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[150px] lg:shadow-[2px_0_18px_rgba(18,60,53,.045)] rtl:lg:left-auto rtl:lg:right-0">
       <div className="meyaar-sidebar-brand hidden h-[96px] shrink-0 items-center justify-center border-b border-[#eef1ef] px-3 lg:flex">
@@ -44,6 +51,7 @@ export default function AppSidebar({ activeView, onNavigate, onLogout }: AppSide
       <div className="hidden shrink-0 border-t border-[#dfe5e1] px-3 py-4 lg:block">
         <button type="button" onClick={() => onNavigate("profile")} className={`flex h-[42px] w-full items-center gap-2.5 rounded-lg px-3 text-[12px] font-medium ${activeView === "profile" ? "bg-[#dcebe5] text-[#075f50]" : "text-[#465671] hover:bg-[#edf7f3]"}`}><span className="size-4 [&>svg]:size-full [&>svg]:fill-none [&>svg]:stroke-current [&>svg]:stroke-[1.8]"><SidebarIcon name="settings" /></span>{language === "ar" ? "الإعدادات" : "Settings"}</button>
         <button type="button" onClick={() => void onLogout()} className="flex h-[42px] w-full items-center gap-2.5 rounded-lg px-3 text-[12px] font-medium text-[#465671] hover:bg-red-50 hover:text-red-700"><span className="size-4 [&>svg]:size-full [&>svg]:fill-none [&>svg]:stroke-current [&>svg]:stroke-[1.8]"><SidebarIcon name="logout" /></span>{language === "ar" ? "تسجيل الخروج" : "Sign out"}</button>
+        <button type="button" onClick={() => onNavigate("profile")} className="meyaar-sidebar-user mt-3 flex w-full items-center gap-2 border-t border-[#dfe5e1] px-1 pt-4 text-start"><span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#8fc6b6] bg-[#dcebe5] text-sm font-bold text-[#075f50]">{user.name.trim().charAt(0).toUpperCase()}</span><span className="min-w-0 flex-1"><strong className="block truncate text-[11px] font-bold">{user.name}</strong><small className="mt-0.5 block truncate text-[9px] text-slate-500">{role}</small></span><span className="text-lg text-slate-400 rtl:rotate-180">›</span></button>
       </div>
     </aside>
   );
