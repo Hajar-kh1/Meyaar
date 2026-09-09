@@ -104,6 +104,8 @@ html[lang="ar"] :where(h1, h2, h3, h4, h5, h6, p, a, button, label, th, td) {
 }
 
 .meyaar-hero-dark { display: none; }
+.meyaar-logo-dark { display: none; }
+.meyaar-landing-logo { background: #fff; }
 
 .meyaar-capabilities {
   background: rgb(241 248 244 / .95);
@@ -204,6 +206,12 @@ textarea:focus-visible {
 
 .dark .meyaar-hero-light { display: none; }
 .dark .meyaar-hero-dark { display: block; }
+.dark .meyaar-logo-light { display: none; }
+.dark .meyaar-logo-dark {
+  display: block;
+  transform: scale(1.55);
+}
+.dark .meyaar-landing-logo { background: #071b23; }
 
 .dark .meyaar-third-hero-overlay {
   background: linear-gradient(90deg, rgb(6 24 31 / .34) 0%, rgb(6 24 31 / .08) 50%, transparent 74%);
@@ -212,6 +220,22 @@ textarea:focus-visible {
 .dark[dir="rtl"] .meyaar-third-hero-overlay {
   background: linear-gradient(270deg, rgb(6 24 31 / .34) 0%, rgb(6 24 31 / .08) 50%, transparent 74%);
 }
+
+.dark #platform { color: #f4f8f8; }
+.dark #platform .text-blue-600,
+.dark #platform .text-\[\#31577f\] { color: #11cfaa; }
+.dark #platform .bg-blue-600 { background-color: #08ae8b; }
+.dark #platform .bg-blue-500\/60 { background-color: rgb(17 207 170 / .65); }
+.dark #platform .bg-blue-600:hover { background-color: #0bc39c; }
+.dark #platform .text-slate-600 { color: #c0ced1; }
+.dark .meyaar-landing-header nav { color: #d8e3e5; }
+.dark .meyaar-capabilities {
+  background: rgb(5 32 39 / .82);
+  border-color: rgb(19 190 157 / .38);
+  box-shadow: 0 14px 38px rgb(0 0 0 / .25);
+}
+.dark .meyaar-capabilities > div + div { border-color: rgb(19 190 157 / .22); }
+.dark .meyaar-capabilities svg { color: #13cda8; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
