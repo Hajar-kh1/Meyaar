@@ -252,6 +252,10 @@ textarea:focus-visible {
   background: transparent;
 }
 .dark .meyaar-sidebar-logo { background: transparent; }
+.dark .meyaar-sidebar-brand {
+  background: #12333d;
+  border-color: #244752;
+}
 
 .dark .meyaar-third-hero-overlay {
   background: linear-gradient(90deg, rgb(6 24 31 / .34) 0%, rgb(6 24 31 / .08) 50%, transparent 74%);
