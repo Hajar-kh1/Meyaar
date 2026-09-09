@@ -164,7 +164,8 @@ textarea:focus-visible {
 .dark .text-slate-950,
 .dark .text-slate-900,
 .dark .text-slate-800,
-.dark .text-\[\#071c33\] { color: #edf4f5; }
+.dark .text-\[\#071c33\],
+.dark .text-\[\#17332f\] { color: #edf4f5; }
 .dark .text-slate-700,
 .dark .text-slate-600 { color: #bfd0d6; }
 .dark .text-slate-500,
@@ -222,6 +223,9 @@ textarea:focus-visible {
 }
 
 .dark #platform { color: #f4f8f8; }
+.dark #how-it-works { background: #102832; }
+.dark #about { background: #17333e; }
+.dark #how-it-works .bg-blue-600 { background-color: #087d69; }
 .dark #platform .text-blue-600,
 .dark #platform .text-\[\#31577f\] { color: #11cfaa; }
 .dark #platform .bg-blue-600 { background-color: #08ae8b; }
