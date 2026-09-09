@@ -49,12 +49,17 @@ async function parseResponse<T>(
       `Request failed with status ${response.status}`;
 
     try {
-      const body = (await response.json()) as {
-        detail?: string;
-      };
+      const body = (await response.json()) as { detail?: unknown };
 
       if (body.detail) {
-        message = body.detail;
+        if (typeof body.detail === "string") message = body.detail;
+        else if (Array.isArray(body.detail)) {
+          message = body.detail.map((item) => {
+            if (typeof item === "string") return item;
+            if (item && typeof item === "object" && "msg" in item) return String((item as { msg: unknown }).msg);
+            return JSON.stringify(item);
+          }).join(" · ");
+        } else if (typeof body.detail === "object") message = JSON.stringify(body.detail);
       }
     } catch {
       // Keep the default HTTP error message.

@@ -3,6 +3,7 @@ import smtplib
 import json
 import re
 import secrets
+from difflib import SequenceMatcher
 from pathlib import Path
 from email.message import EmailMessage
 from email.utils import formataddr, parseaddr
@@ -372,17 +373,26 @@ def search_user_directory(query: str = Query(min_length=2, max_length=100), user
     """Return a limited candidate list so the assistant can resolve duplicate names."""
     if user.get("role") != "manager" or not user.get("team_id"):
         raise HTTPException(status_code=403, detail="Manager access is required.")
-    term = f"%{query.strip().lower()}%"
+    needle = query.strip().casefold()
     with database_engine().begin() as connection:
         ensure_app_tables(connection)
         rows = connection.execute(text("""
-            SELECT u.user_id, u.name, u.email, u.username
+            SELECT u.user_id, u.name, u.email, u.username,
+                   EXISTS (SELECT 1 FROM public.team_memberships m WHERE m.team_id = :team_id AND m.user_id = u.user_id) AS is_current_team_member
             FROM public.app_users u
-            WHERE (LOWER(u.name) LIKE :term OR LOWER(COALESCE(u.email, '')) LIKE :term OR LOWER(COALESCE(u.username, '')) LIKE :term)
-              AND NOT EXISTS (SELECT 1 FROM public.team_memberships m WHERE m.team_id = :team_id AND m.user_id = u.user_id)
-            ORDER BY LOWER(u.name), LOWER(COALESCE(u.email, '')) LIMIT 10
-        """), {"term": term, "team_id": user["team_id"]}).mappings().all()
-    return [{**dict(row), "user_id": str(row["user_id"])} for row in rows]
+            WHERE NOT EXISTS (SELECT 1 FROM public.team_memberships m WHERE m.team_id = :team_id AND m.user_id = u.user_id)
+            ORDER BY LOWER(u.name), LOWER(COALESCE(u.email, '')) LIMIT 500
+        """), {"team_id": user["team_id"]}).mappings().all()
+
+    def match_score(row) -> float:
+        values = [str(row.get("name") or "").casefold(), str(row.get("email") or "").casefold(), str(row.get("username") or "").casefold()]
+        if any(needle in value or value in needle for value in values if value):
+            return 1.0
+        name_parts = values[0].split()
+        return max((SequenceMatcher(None, needle, value).ratio() for value in [values[0], *name_parts] if value), default=0.0)
+
+    ranked = sorted(((match_score(row), row) for row in rows), key=lambda item: (-item[0], str(item[1]["name"]).casefold()))
+    return [{**dict(row), "user_id": str(row["user_id"])} for score, row in ranked if score >= 0.62][:10]
 
 
 @app.post("/teams/{team_id}/members", status_code=201)
