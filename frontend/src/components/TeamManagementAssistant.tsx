@@ -159,41 +159,41 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
       for (let index = 0; index < plan.actions.length; index += 1) {
         const action = plan.actions[index];
         if (action.action === "create_team") {
-          if (!action.team_name?.trim()) throw new Error(language === "ar" ? "أدخلي اسم الفريق الجديد." : "Enter a name for the new team.");
+          if (!action.team_name?.trim()) throw new Error(conversationIsArabic ? "أدخلي اسم الفريق الجديد." : "Enter a name for the new team.");
           await createTeam(action.team_name.trim()); activeUser = await getMe(); activeTeamId = activeUser.team_id;
-          completed.push(language === "ar" ? `تم إنشاء فريق: ${action.team_name}` : `Created team: ${action.team_name}`);
+          completed.push(conversationIsArabic ? `تم إنشاء فريق: ${action.team_name}` : `Created team: ${action.team_name}`);
         } else if (action.action === "add") {
           const existingId = existingSelections[index];
           if (existingId) {
-            if (!activeTeamId) throw new Error(language === "ar" ? "أنشئي فريقًا أو اختاري فريقًا أولًا." : "Create or select a team first.");
+            if (!activeTeamId) throw new Error(conversationIsArabic ? "أنشئي فريقًا أو اختاري فريقًا أولًا." : "Create or select a team first.");
             const added = await addExistingTeamMember(activeTeamId, existingId, action.role);
-            completed.push(language === "ar" ? `تمت إضافة الحساب الموجود ${added.name} بصفة ${action.role === "leader" ? "قائد فريق" : "عضو"}.` : `Added existing account ${added.name} as ${action.role}.`);
+            completed.push(conversationIsArabic ? `تمت إضافة الحساب الموجود ${added.name} بصفة ${action.role === "leader" ? "قائد فريق" : "عضو"}.` : `Added existing account ${added.name} as ${action.role}.`);
           } else {
-            if (!action.name?.trim() || !action.email?.trim()) throw new Error(language === "ar" ? `اختاري حسابًا موجودًا أو أدخلي البريد الشخصي للإجراء ${index + 1}.` : `Choose an existing account or enter a personal email for action ${index + 1}.`);
+            if (!action.name?.trim() || !action.email?.trim()) throw new Error(conversationIsArabic ? `اختاري حسابًا موجودًا أو أدخلي البريد الشخصي للإجراء ${index + 1}.` : `Choose an existing account or enter a personal email for action ${index + 1}.`);
             const created = await createTeamUser(action);
-            completed.push(language === "ar" ? `تم إنشاء حساب ${created.name} وإضافته بصفة ${created.role === "leader" ? "قائد فريق" : "عضو"}، وأُرسلت بيانات الدخول إلى ${created.personal_email}.` : `Created and added ${created.name} as ${created.role}. Credentials were sent privately to ${created.personal_email}.`);
+            completed.push(conversationIsArabic ? `تم إنشاء حساب ${created.name} وإضافته بصفة ${created.role === "leader" ? "قائد فريق" : "عضو"}، وأُرسلت بيانات الدخول إلى ${created.personal_email}.` : `Created and added ${created.name} as ${created.role}. Credentials were sent privately to ${created.personal_email}.`);
           }
         } else if (action.action === "remove") {
-          if (!activeTeamId || !memberSelections[index]) throw new Error(language === "ar" ? `اختاري العضو للإجراء ${index + 1}.` : `Choose the member for action ${index + 1}.`);
+          if (!activeTeamId || !memberSelections[index]) throw new Error(conversationIsArabic ? `اختاري العضو للإجراء ${index + 1}.` : `Choose the member for action ${index + 1}.`);
           const selected = data.members.find((member) => member.user_id === memberSelections[index]);
-          await removeTeamMember(activeTeamId, memberSelections[index]); completed.push(language === "ar" ? `تمت إزالة ${selected?.name ?? "العضو"} من الفريق.` : `Removed ${selected?.name ?? "member"} from the team.`);
+          await removeTeamMember(activeTeamId, memberSelections[index]); completed.push(conversationIsArabic ? `تمت إزالة ${selected?.name ?? "العضو"} من الفريق.` : `Removed ${selected?.name ?? "member"} from the team.`);
         } else if (action.action === "change_role") {
-          if (!activeTeamId || !memberSelections[index]) throw new Error(language === "ar" ? `اختاري العضو للإجراء ${index + 1}.` : `Choose the member for action ${index + 1}.`);
+          if (!activeTeamId || !memberSelections[index]) throw new Error(conversationIsArabic ? `اختاري العضو للإجراء ${index + 1}.` : `Choose the member for action ${index + 1}.`);
           const selected = data.members.find((member) => member.user_id === memberSelections[index]);
           await updateTeamMemberRole(activeTeamId, memberSelections[index], action.role);
-          completed.push(language === "ar" ? `تم تغيير دور ${selected?.name ?? "العضو"} إلى ${action.role === "leader" ? "قائد فريق" : "عضو"}.` : `Changed ${selected?.name ?? "member"} to ${action.role === "leader" ? "Team Leader" : "Member"}.`);
+          completed.push(conversationIsArabic ? `تم تغيير دور ${selected?.name ?? "العضو"} إلى ${action.role === "leader" ? "قائد فريق" : "عضو"}.` : `Changed ${selected?.name ?? "member"} to ${action.role === "leader" ? "Team Leader" : "Member"}.`);
         } else if (action.action === "delete_team") {
-          if (!activeTeamId) throw new Error(language === "ar" ? "لا يوجد فريق نشط لحذفه." : "No active team to delete.");
+          if (!activeTeamId) throw new Error(conversationIsArabic ? "لا يوجد فريق نشط لحذفه." : "No active team to delete.");
           if ((deleteConfirmations[index] ?? "").trim() !== data.team.name) throw new Error(`Type ${data.team.name} to confirm team deletion.`);
-          activeUser = await deleteTeam(activeTeamId); activeTeamId = activeUser.team_id; completed.push(language === "ar" ? "تم حذف الفريق النشط." : "Deleted the active team.");
+          activeUser = await deleteTeam(activeTeamId); activeTeamId = activeUser.team_id; completed.push(conversationIsArabic ? "تم حذف الفريق النشط." : "Deleted the active team.");
         } else if (action.action === "list_members") {
           setListedMembers(data.members);
-          completed.push(language === "ar" ? `يوجد ${data.members.length} عضو في فريق ${data.team.name}.` : `${data.members.length} ${data.members.length === 1 ? "member" : "members"} in ${data.team.name}.`);
+          completed.push(conversationIsArabic ? `يوجد ${data.members.length} عضو في فريق ${data.team.name}.` : `${data.members.length} ${data.members.length === 1 ? "member" : "members"} in ${data.team.name}.`);
         }
         else if (action.action === "team_summary") {
           const teams = await getManagedTeamsOverview();
           setManagedTeams(teams);
-          completed.push(language === "ar" ? `تم تحميل ${teams.length} من الفرق التابعة لك.` : `${teams.length} managed ${teams.length === 1 ? "team" : "teams"} loaded.`);
+          completed.push(conversationIsArabic ? `تم تحميل ${teams.length} من الفرق التابعة لك.` : `${teams.length} managed ${teams.length === 1 ? "team" : "teams"} loaded.`);
         }
       }
       if (activeTeamId) activeUser = await activateTeam(activeTeamId);
@@ -212,9 +212,10 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
 
   function resetChat() { setPlan(null); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null); setSentMessage(""); setInstruction(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({}); }
 
-  const isArabic = language === "ar";
-  const conversationIsArabic = sentMessage ? /[\u0600-\u06FF]/.test(sentMessage) : isArabic;
-  const copy = isArabic ? {
+  const pageIsArabic = language === "ar";
+  const conversationIsArabic = sentMessage ? /[\u0600-\u06FF]/.test(sentMessage) : pageIsArabic;
+  const isArabic = conversationIsArabic;
+  const copy = conversationIsArabic ? {
     title: "مساعد إدارة الفريق", online: "متصل الآن", greeting: "كيف أقدر أساعدك في إدارة الفريق؟", example: "اكتبي طلبك بالعربي أو الإنجليزي، مثل: «أنشئ فريق جودة وأضف سارة كقائدة فريق».", preparing: "جارٍ تجهيز مراجعة طلبك…", completed: "تم تنفيذ الطلب", more: "هل تحتاجين مساعدة أخرى؟", newTask: "مهمة جديدة", end: "إنهاء المحادثة", review: "راجعي الخطة ثم أكدي التنفيذ", placeholder: "اكتبي طلبك لإدارة الفريق…", quick: [
       { title: "إضافة عضو", hint: "عضو أو حساب جديد", prompt: "أضف عضوًا جديدًا إلى الفريق" },
       { title: "إنشاء فريق", hint: "فريق جديد", prompt: "أنشئ فريقًا جديدًا" },
