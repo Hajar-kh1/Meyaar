@@ -376,6 +376,15 @@ def search_user_directory(query: str = Query(min_length=2, max_length=100), user
     if user.get("role") != "manager" or not user.get("team_id"):
         raise HTTPException(status_code=403, detail="Manager access is required.")
     needle = query.strip().casefold()
+    arabic_to_latin = str.maketrans({"ا": "a", "أ": "a", "إ": "i", "آ": "a", "ب": "b", "ت": "t", "ث": "th", "ج": "j", "ح": "h", "خ": "kh", "د": "d", "ذ": "th", "ر": "r", "ز": "z", "س": "s", "ش": "sh", "ص": "s", "ض": "d", "ط": "t", "ظ": "z", "ع": "a", "غ": "gh", "ف": "f", "ق": "q", "ك": "k", "ل": "l", "م": "m", "ن": "n", "ه": "h", "ة": "h", "و": "w", "ؤ": "w", "ي": "y", "ى": "a", "ئ": "y", "ء": ""})
+
+    def search_forms(value: str) -> set[str]:
+        plain = re.sub(r"[^a-z0-9\u0600-\u06ff]", "", value.casefold())
+        latin = re.sub(r"[^a-z0-9]", "", plain.translate(arabic_to_latin))
+        skeleton = re.sub(r"[aeiouy]", "", latin)
+        return {item for item in (plain, latin, skeleton) if len(item) >= 2}
+
+    needle_forms = search_forms(needle)
     with database_engine().begin() as connection:
         ensure_app_tables(connection)
         rows = connection.execute(text("""
@@ -390,8 +399,11 @@ def search_user_directory(query: str = Query(min_length=2, max_length=100), user
         values = [str(row.get("name") or "").casefold(), str(row.get("email") or "").casefold(), str(row.get("username") or "").casefold()]
         if any(needle in value or value in needle for value in values if value):
             return 1.0
+        if any(needle_forms & search_forms(value) for value in values if value):
+            return 0.96
         name_parts = values[0].split()
-        return max((SequenceMatcher(None, needle, value).ratio() for value in [values[0], *name_parts] if value), default=0.0)
+        compared_forms = [form for value in [values[0], *name_parts] for form in search_forms(value)]
+        return max((SequenceMatcher(None, needle_form, value_form).ratio() for needle_form in needle_forms for value_form in compared_forms), default=0.0)
 
     ranked = sorted(((match_score(row), row) for row in rows), key=lambda item: (-item[0], str(item[1]["name"]).casefold()))
     return [{**dict(row), "user_id": str(row["user_id"])} for score, row in ranked if score >= 0.62][:10]
@@ -593,6 +605,42 @@ async def transcribe_team_command(file: UploadFile = File(...), user: dict = Dep
     if not transcript:
         raise HTTPException(status_code=422, detail="No speech was detected.")
     return {"text": transcript}
+
+
+@app.post("/team/voice/synthesize")
+async def synthesize_team_agent_voice(body: VoiceSynthesisRequest, user: dict = Depends(current_user)):
+    """Speak Team Agent replies in Saudi Arabic without relying on the Groq SDK."""
+    if user["role"] != "manager":
+        raise HTTPException(status_code=403, detail="Only the team manager can use team voice responses.")
+
+    def synthesize() -> bytes:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError("GROQ_API_KEY is not configured for team voice responses.")
+        payload = json.dumps({
+            "model": "canopylabs/orpheus-arabic-saudi",
+            "voice": body.voice or "lulwa",
+            "input": body.text,
+            "response_format": "wav",
+        }).encode("utf-8")
+        request = urllib.request.Request(
+            "https://api.groq.com/openai/v1/audio/speech",
+            data=payload,
+            headers={"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json", "Accept": "audio/wav", "User-Agent": "Meyaar-Team-Agent/1.0"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=45) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            detail = error.read().decode("utf-8", errors="replace").strip()
+            raise RuntimeError(f"Groq team voice failed ({error.code}): {detail or error.reason}") from error
+
+    try:
+        audio = await run_in_threadpool(synthesize)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return Response(content=audio, media_type="audio/wav")
 
 
 @app.post("/team/users", status_code=201)

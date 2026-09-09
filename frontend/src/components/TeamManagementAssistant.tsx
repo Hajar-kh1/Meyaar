@@ -55,7 +55,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   async function speak(text: string) {
     setError("");
     try {
-      const response = await fetch("/backend/voice/synthesize", {
+      const response = await fetch("/backend/team/voice/synthesize", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAuthToken() ?? ""}` },
         body: JSON.stringify({ text, voice: "lulwa" }),
