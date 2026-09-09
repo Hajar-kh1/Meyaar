@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { geoJSON, popup } from "leaflet";
+import { circleMarker, geoJSON, popup } from "leaflet";
 import type {
   FeatureCollection,
   GeoJsonProperties,
@@ -259,8 +259,20 @@ export default function LeafletMap({
 
       {showErrors && data.features.length > 0 && (
         <GeoJSON
-          key={`errors-outline-v4-${selectedErrorId ?? "none"}-${currentZoom}-${data.features.length}`}
+          key={`errors-outline-v5-${selectedErrorId ?? "none"}-${data.features.length}`}
           data={data}
+          pointToLayer={(feature, latlng) => {
+            const isSelected = selectedErrorId != null && String(feature.properties?.resultId) === selectedErrorId;
+            const color = colorForSeverity(String(feature.properties?.severity ?? "unknown"));
+            return circleMarker(latlng, {
+              radius: isSelected ? 9 : 7,
+              color: "#ffffff",
+              weight: isSelected ? 3 : 2.5,
+              opacity: 1,
+              fillColor: color,
+              fillOpacity: 1,
+            });
+          }}
           style={(feature) => {
             const isSelected =
               selectedErrorId != null &&
@@ -279,7 +291,7 @@ export default function LeafletMap({
               color: isSelected ? "#dc2626" : color,
               fillColor: color,
               fillOpacity: isSelected ? 0.28 : 0.14,
-              weight: isSelected ? 5 : currentZoom < 12 ? 4 : 3,
+              weight: isSelected ? 5 : 3,
               opacity: isSelected ? 1 : 0.88,
               dashArray: isSelected ? undefined : "6 5",
             };
