@@ -4,6 +4,7 @@ import json
 import re
 import secrets
 import urllib.request
+import urllib.error
 from difflib import SequenceMatcher
 from pathlib import Path
 from email.message import EmailMessage
@@ -560,11 +561,27 @@ async def transcribe_team_command(file: UploadFile = File(...), user: dict = Dep
         request = urllib.request.Request(
             "https://api.groq.com/openai/v1/audio/transcriptions",
             data=b"".join(parts),
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": f"multipart/form-data; boundary={boundary}"},
+            headers={
+                "Authorization": f"Bearer {api_key.strip()}",
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Accept": "application/json",
+                "User-Agent": "Meyaar-Team-Agent/1.0",
+            },
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=45) as response:
-            result = json.loads(response.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(request, timeout=45) as response:
+                result = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as error:
+            raw_detail = error.read().decode("utf-8", errors="replace")
+            try:
+                provider_error = json.loads(raw_detail).get("error", {})
+                detail = provider_error.get("message") if isinstance(provider_error, dict) else str(provider_error)
+            except (json.JSONDecodeError, AttributeError):
+                detail = raw_detail.strip()
+            if error.code in (401, 403):
+                raise RuntimeError(f"Groq rejected the API key or its permissions: {detail or error.reason}") from error
+            raise RuntimeError(f"Groq transcription request failed ({error.code}): {detail or error.reason}") from error
         return str(result.get("text") or "").strip()
 
     try:
