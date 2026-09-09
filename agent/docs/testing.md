@@ -7,7 +7,7 @@ Four layers of testing, from zero-dependency to full live system.
 ```bash
 cd ~/Desktop/tuwiq-capstone/Meyaar
 MEYAAR_ALLOW_LLM=false agent/.venv/bin/python -m pytest agent/tests -q
-# expect: 102 passed
+# expect: 129 passed
 ```
 
 Runs against an in-memory repository + stub LLMs. Covers:
@@ -20,6 +20,7 @@ Runs against an in-memory repository + stub LLMs. Covers:
 | test_measurements.py | get_spatial_measurements shape (length_m/area_m2/vertex_count/centroid/bbox, relationship block), N/A = None, missing feature = None; registry remediation policy fields for all rules (auto-fix only BLD003/RD004) |
 | test_remediation.py | the 9 trainer scenarios: auto-fix applied, RD001/RD002 human review, missing geometry never invented, LLM invalid action rejected, LLM heuristic auto-fix claim overridden, SQL failure recorded + others continue, LLM-disabled determinism, clean run |
 | test_chat.py | grounded answers, source filtering (fake ids dropped), requires LLM; chat context includes the remediation audit (counts + items) and still works when the audit table is missing; conversation memory: turns persisted per (user, run), replayed into the next prompt, trimmed to the recent window, best-effort when the memory table is missing, failed answers not persisted |
+| test_orchestrator.py | deterministic upload routing: vector/image by extension (case-insensitive), image magic bytes beat mislabelled extensions, TIFF both endiannesses, JSON-text → vector; delegation to the vector/vision pipelines (stubbed) with args forwarded, inspect-then-vision order, unsupported raises, pipeline errors propagate |
 | test_api.py | POST analyze, GET analysis (404 before analyze), GET remediation, malformed UUID 422, narrative in analysis summary, chat endpoint persists conversation memory scoped to the authenticated user |
 
 Run one file: `... -m pytest agent/tests/test_analysis.py -q`
