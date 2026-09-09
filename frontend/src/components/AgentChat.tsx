@@ -155,7 +155,7 @@ export default function AgentChat({ runId, embedded = false }: AgentChatProps) {
   }
 
   return (
-    <div className={embedded ? "w-full" : "fixed bottom-6 right-6 z-[3000] flex flex-col items-end gap-3 rtl:left-6 rtl:right-auto rtl:items-start"}>
+    <div className={embedded ? "w-full" : "fixed bottom-4 right-4 z-[3000] flex flex-col items-end gap-2 rtl:left-4 rtl:right-auto rtl:items-start"}>
     {isOpen && (
     <section className={`flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl ${embedded ? 'min-h-[620px] w-full' : 'max-h-[75vh] w-[min(420px,calc(100vw-2rem))]'}`}>
       <div className="border-b border-slate-200 px-6 py-5">
@@ -192,19 +192,19 @@ export default function AgentChat({ runId, embedded = false }: AgentChatProps) {
     </section>
     )}
 
-    {!embedded && <div className="flex items-center gap-2.5 rtl:flex-row-reverse">
-      {!isOpen && <button type="button" onClick={() => setIsOpen(true)} className="rounded-2xl bg-white px-4 py-2.5 text-start text-xs text-[#17332f] shadow-[0_8px_25px_rgba(18,60,53,.12)] ring-1 ring-slate-100"><strong className="block text-[#075f50]">{language === "ar" ? "اسأل معيار" : "Ask Meyaar"}</strong><span>{language === "ar" ? (runId ? "ما معنى هذا التحليل؟" : "كيف أبدأ الفحص؟") : (runId ? "What does this analysis mean?" : "How do I start a check?")}</span></button>}
+    {!embedded && <div className="flex items-center gap-2 rtl:flex-row-reverse">
+      {!isOpen && <button type="button" onClick={() => setIsOpen(true)} className="rounded-xl bg-white px-3 py-2 text-start text-[10px] leading-4 text-[#17332f] shadow-[0_6px_18px_rgba(18,60,53,.11)] ring-1 ring-slate-100"><strong className="block text-[11px] text-[#075f50]">{language === "ar" ? "اسأل معيار" : "Ask Meyaar"}</strong><span>{language === "ar" ? (runId ? "ما معنى هذا التحليل؟" : "كيف أبدأ الفحص؟") : (runId ? "What does this analysis mean?" : "How do I start a check?")}</span></button>}
       <button
         type="button"
         onClick={() => setIsOpen((value) => !value)}
         aria-label={isOpen ? "Close AI assistant" : "Open AI assistant"}
         aria-expanded={isOpen}
-        className="flex size-14 shrink-0 items-center justify-center rounded-full border border-[#0b806c] bg-[#075f50] text-white shadow-[0_10px_30px_rgba(7,95,80,.28)] ring-4 ring-white transition hover:scale-105 hover:bg-[#064d42]"
+        className="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#0b806c] bg-[#075f50] text-white shadow-[0_7px_20px_rgba(7,95,80,.24)] ring-[3px] ring-white transition hover:scale-105 hover:bg-[#064d42]"
       >
       <svg
         viewBox="0 0 24 24"
         aria-hidden="true"
-        className="size-7"
+        className="size-5"
         fill="currentColor"
       >
         <path d="M12 3.25c-5.05 0-9 3.57-9 8.12 0 2.2.94 4.2 2.58 5.67l-.77 3.18a.45.45 0 0 0 .56.53l3.63-1.1c.95.28 1.96.42 3 .42 5.05 0 9-3.57 9-8.12S17.05 3.25 12 3.25Z" />
