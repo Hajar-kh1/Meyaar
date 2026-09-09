@@ -274,22 +274,14 @@ export default function LeafletMap({
                   "unknown",
               ),
             );
-            const isArriving = currentZoom >= 16;
-
             return {
-              fill: false,
+              fill: true,
               color: isSelected ? "#dc2626" : color,
-              weight: isSelected
-                ? isArriving
-                  ? 4
-                  : 1.5
-                : 2,
-              opacity: !isArriving
-                ? 0
-                : isSelected
-                  ? 0.72
-                  : 0.24,
-              dashArray: isSelected ? undefined : "4 6",
+              fillColor: color,
+              fillOpacity: isSelected ? 0.28 : 0.14,
+              weight: isSelected ? 5 : currentZoom < 12 ? 4 : 3,
+              opacity: isSelected ? 1 : 0.88,
+              dashArray: isSelected ? undefined : "6 5",
             };
           }}
           onEachFeature={(feature, layer) => {
@@ -321,9 +313,9 @@ export default function LeafletMap({
 
       <FitToErrors
         data={
-          showLayer && layerData?.features.length
-            ? layerData
-            : data
+          data.features.length
+            ? data
+            : layerData ?? data
         }
         resetKey={resetKey}
       />
