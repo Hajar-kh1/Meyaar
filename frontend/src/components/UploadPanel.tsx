@@ -149,7 +149,7 @@ export default function UploadPanel({
       { label: arabic ? "مطابقة متطلبات GeoSA" : "Checking GeoSA requirements", at: 82 },
       { label: arabic ? "إعداد النتائج" : "Preparing results", at: 98 },
     ];
-    return <section dir={direction} className="overflow-hidden rounded-2xl border border-[#dfe5e1] bg-white shadow-sm">
+    return <section dir={direction} className="meyaar-processing-screen overflow-hidden rounded-2xl border border-[#dfe5e1] bg-white shadow-sm">
       <div className="grid min-h-[520px] lg:h-[calc(100vh-120px)] lg:max-h-[650px] lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="border-e border-slate-200 p-5">
           <div className="space-y-3.5">{steps.map((step) => <div key={step.label} className={`flex items-center gap-2.5 text-xs ${progress >= step.at ? "font-bold text-[#075f50]" : "text-slate-400"}`}><span className={`flex size-[18px] items-center justify-center rounded-full text-[9px] ${progress >= step.at ? "bg-[#0b806c] text-white" : "border border-slate-300 bg-white"}`}>{progress >= step.at ? "✓" : ""}</span>{step.label}</div>)}</div>

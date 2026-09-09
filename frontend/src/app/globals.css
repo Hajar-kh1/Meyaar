@@ -220,6 +220,30 @@ textarea:focus-visible {
   background: #071b23;
   border-color: #2a5b5b;
 }
+.dark .meyaar-processing-screen {
+  background: #102f3a;
+  border-color: #3a5a64;
+}
+.dark .meyaar-processing-screen aside {
+  border-color: #31515c;
+}
+.dark .meyaar-processing-screen .bg-\[\#fdfefc\] {
+  background: #0d2630;
+  border-color: #345864;
+}
+.dark .meyaar-processing-screen .text-\[\#075f50\] {
+  color: #26d3ae;
+}
+.dark .meyaar-processing-screen .text-\[\#17332f\] {
+  color: #f1f7f7;
+}
+.dark .meyaar-processing-screen .bg-\[\#0b806c\] {
+  background: #0da98b;
+}
+.dark .meyaar-processing-screen .text-slate-600 { color: #bfd1d5; }
+.dark .meyaar-processing-screen .text-slate-500,
+.dark .meyaar-processing-screen .text-slate-400 { color: #91aeb6; }
+.dark .meyaar-processing-screen .bg-slate-200 { background: #294752; }
 .dark .meyaar-landing-logo {
   width: 74px;
   height: 40px;
