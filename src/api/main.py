@@ -3,6 +3,7 @@ import smtplib
 import json
 import re
 import secrets
+import urllib.request
 from difflib import SequenceMatcher
 from pathlib import Path
 from email.message import EmailMessage
@@ -543,17 +544,28 @@ async def transcribe_team_command(file: UploadFile = File(...), user: dict = Dep
         raise HTTPException(status_code=413, detail="The audio recording is too large.")
 
     def transcribe() -> str:
-        from groq import Groq
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             raise RuntimeError("GROQ_API_KEY is not configured for voice commands.")
-        result = Groq(api_key=api_key).audio.transcriptions.create(
-            file=(file.filename or "team-command.webm", audio),
-            model="whisper-large-v3-turbo",
-            response_format="json",
-            temperature=0.0,
+        boundary = f"----MeyaarVoice{secrets.token_hex(12)}"
+        filename = (file.filename or "team-command.webm").replace('"', "")
+        content_type = file.content_type or "audio/webm"
+        parts = [
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-large-v3-turbo\r\n".encode(),
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\njson\r\n".encode(),
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\nContent-Type: {content_type}\r\n\r\n".encode(),
+            audio,
+            f"\r\n--{boundary}--\r\n".encode(),
+        ]
+        request = urllib.request.Request(
+            "https://api.groq.com/openai/v1/audio/transcriptions",
+            data=b"".join(parts),
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": f"multipart/form-data; boundary={boundary}"},
+            method="POST",
         )
-        return str(result.text).strip()
+        with urllib.request.urlopen(request, timeout=45) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        return str(result.get("text") or "").strip()
 
     try:
         transcript = await run_in_threadpool(transcribe)
