@@ -241,6 +241,8 @@ const translations: Record<string, string> = {
   "Progress": "التقدم",
   "Joined": "تاريخ الانضمام",
   "Team Leader": "قائد الفريق",
+  "Actions": "الإجراءات",
+  "Delete": "حذف",
   "Manager": "مدير",
   "Online": "متصل",
   "Offline": "غير متصل",
