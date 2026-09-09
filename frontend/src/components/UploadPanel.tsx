@@ -59,7 +59,8 @@ async function splitMixedGeoJson(files: File[]): Promise<File[]> {
 export default function UploadPanel({
   onResult,
 }: UploadPanelProps) {
-  const { t } = useLanguage();
+  const { t, language, direction } = useLanguage();
+  const arabic = language === "ar";
   const [files, setFiles] = useState<File[]>([]);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState(0);
@@ -141,26 +142,26 @@ export default function UploadPanel({
 
   if (isLoading) {
     const steps = [
-      { label: "قراءة البيانات", at: 5 },
-      { label: "اكتشاف نوع الطبقة", at: 18 },
-      { label: "فحص الهندسة والطوبولوجيا", at: 38 },
-      { label: "تقييم جودة البيانات", at: 62 },
-      { label: "مطابقة متطلبات GeoSA", at: 82 },
-      { label: "إعداد النتائج", at: 98 },
+      { label: arabic ? "قراءة البيانات" : "Reading data", at: 5 },
+      { label: arabic ? "اكتشاف نوع الطبقة" : "Detecting layer type", at: 18 },
+      { label: arabic ? "فحص الهندسة والطوبولوجيا" : "Checking geometry and topology", at: 38 },
+      { label: arabic ? "تقييم جودة البيانات" : "Evaluating data quality", at: 62 },
+      { label: arabic ? "مطابقة متطلبات GeoSA" : "Checking GeoSA requirements", at: 82 },
+      { label: arabic ? "إعداد النتائج" : "Preparing results", at: 98 },
     ];
-    return <section dir="rtl" className="overflow-hidden rounded-2xl border border-[#dfe5e1] bg-white shadow-sm">
+    return <section dir={direction} className="overflow-hidden rounded-2xl border border-[#dfe5e1] bg-white shadow-sm">
       <div className="grid min-h-[590px] lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="border-e border-slate-200 p-6">
           <div className="space-y-4">{steps.map((step) => <div key={step.label} className={`flex items-center gap-2.5 text-xs ${progress >= step.at ? "font-bold text-[#075f50]" : "text-slate-400"}`}><span className={`flex size-[18px] items-center justify-center rounded-full text-[9px] ${progress >= step.at ? "bg-[#0b806c] text-white" : "border border-slate-300 bg-white"}`}>{progress >= step.at ? "✓" : ""}</span>{step.label}</div>)}</div>
-          <button type="button" disabled className="mt-14 w-full rounded-lg border border-slate-300 py-2 text-xs font-bold text-slate-500">إلغاء الفحص</button>
+          <button type="button" disabled className="mt-14 w-full rounded-lg border border-slate-300 py-2 text-xs font-bold text-slate-500">{arabic ? "إلغاء الفحص" : "Cancel analysis"}</button>
         </aside>
         <div className="flex flex-col justify-center p-6 text-center">
-          <h2 className="text-xl font-extrabold text-[#17332f]">جاري فحص البيانات...</h2><p className="mt-1.5 text-xs text-slate-500">يقوم المحلل بفحص بياناتك باستخدام محرك معيار</p>
-          <div className="relative mx-auto mt-5 aspect-[1.16/1] w-full max-w-[390px] overflow-hidden rounded-xl border border-[#dce7e2] bg-[#eff5f1]"><Image src="/branding/meyaar-processing-map.png" alt="خريطة شبكة الطرق الجاري فحصها" fill sizes="390px" className="object-cover" priority/><div className="absolute inset-0 bg-gradient-to-t from-white/10 to-transparent"/></div>
+          <h2 className="text-xl font-extrabold text-[#17332f]">{arabic ? "جاري فحص البيانات..." : "Analyzing data..."}</h2><p className="mt-1.5 text-xs text-slate-500">{arabic ? "يقوم المحلل بفحص بياناتك باستخدام محرك معيار" : "The analyzer is checking your data using the Meyaar engine"}</p>
+          <div className="relative mx-auto mt-5 aspect-[1.16/1] w-full max-w-[390px] overflow-hidden rounded-xl border border-[#dce7e2] bg-[#eff5f1]"><Image src="/branding/meyaar-processing-map.png" alt={arabic ? "خريطة شبكة الطرق الجاري فحصها" : "Road network map being analyzed"} fill sizes="390px" className="object-cover" priority/><div className="absolute inset-0 bg-gradient-to-t from-white/10 to-transparent"/></div>
           <div className="mx-auto mt-7 w-full max-w-xl"><div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-[#0b806c] transition-[width]" style={{ width: `${progress}%` }}/></div><div className="mt-2 flex justify-between text-xs text-slate-500"><span>{progress}%</span><span>{files[currentFile]?.name}</span></div></div>
-          <p className="mt-5 text-[11px] text-slate-400">قد يستغرق الفحص عدة دقائق حسب حجم البيانات — {elapsedSeconds} ثانية</p>
+          <p className="mt-5 text-[11px] text-slate-400">{arabic ? `قد يستغرق الفحص عدة دقائق حسب حجم البيانات — ${elapsedSeconds} ثانية` : `Analysis may take several minutes depending on data size — ${elapsedSeconds} seconds`}</p>
         </div>
-        <aside className="flex items-center border-s border-slate-200 p-5"><div className="w-full rounded-xl border border-slate-200 bg-[#fdfefc] p-4 text-start"><p className="text-[11px] text-slate-400">الطبقة الحالية</p><strong className="mt-1 block text-base text-[#17332f]">{detectUploadMode(files[currentFile] ?? files[0]) === "vector" ? "بيانات مكانية" : "صورة خريطة"}</strong><ul className="mt-4 space-y-2.5 text-xs text-slate-600"><li>تم رفع الملف بنجاح</li><li>{progress >= 18 ? "تم اكتشاف نوع الطبقة" : "جاري اكتشاف نوع الطبقة"}</li><li>{progress >= 62 ? "اكتمل فحص الجودة" : "جاري فحص التفاصيل"}</li><li>{progress >= 98 ? "النتائج جاهزة" : "لا توجد أخطاء حتى الآن"}</li></ul></div></aside>
+        <aside className="flex items-center border-s border-slate-200 p-5"><div className="w-full rounded-xl border border-slate-200 bg-[#fdfefc] p-4 text-start"><p className="text-[11px] text-slate-400">{arabic ? "الطبقة الحالية" : "Current layer"}</p><strong className="mt-1 block text-base text-[#17332f]">{detectUploadMode(files[currentFile] ?? files[0]) === "vector" ? (arabic ? "بيانات مكانية" : "Spatial data") : (arabic ? "صورة خريطة" : "Map image")}</strong><ul className="mt-4 space-y-2.5 text-xs text-slate-600"><li>{arabic ? "تم رفع الملف بنجاح" : "File uploaded successfully"}</li><li>{progress >= 18 ? (arabic ? "تم اكتشاف نوع الطبقة" : "Layer type detected") : (arabic ? "جاري اكتشاف نوع الطبقة" : "Detecting layer type")}</li><li>{progress >= 62 ? (arabic ? "اكتمل فحص الجودة" : "Quality check completed") : (arabic ? "جاري فحص التفاصيل" : "Checking details")}</li><li>{progress >= 98 ? (arabic ? "النتائج جاهزة" : "Results are ready") : (arabic ? "لا توجد أخطاء حتى الآن" : "No errors found yet")}</li></ul></div></aside>
       </div>
     </section>;
   }
