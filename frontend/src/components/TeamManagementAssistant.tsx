@@ -38,6 +38,8 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   const [listening, setListening] = useState(false);
   const [awaitingFollowUp, setAwaitingFollowUp] = useState(false);
   const [conversationContext, setConversationContext] = useState("");
+  const [conversationLanguage, setConversationLanguage] = useState<"ar" | "en" | null>(null);
+  const conversationLanguageRef = useRef<"ar" | "en" | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
 
   function browserSpeak(text: string) {
@@ -118,6 +120,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
 
   async function handlePendingReply(message: string) {
     if (!plan) return false;
+    const conversationIsArabic = conversationLanguageRef.current ? conversationLanguageRef.current === "ar" : language === "ar";
     const normalized = message.trim().toLowerCase();
     setSentMessage(message); setInstruction(""); setAwaitingFollowUp(false); setError("");
     if (/^(موافق|وافق|نفذ|نفّذ|تمام نفذ|yes|confirm|approve|go ahead)$/i.test(normalized)) {
@@ -170,6 +173,11 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   async function review(messageOverride?: string) {
     const message = (messageOverride ?? instruction).trim();
     if (!message) return;
+    if (!conversationLanguageRef.current) {
+      const detectedLanguage = /[\u0600-\u06FF]/.test(message) ? "ar" : "en";
+      conversationLanguageRef.current = detectedLanguage;
+      setConversationLanguage(detectedLanguage);
+    }
     setInstruction("");
     if (await handlePendingReply(message)) return;
     setBusy(true); setError(""); setAwaitingFollowUp(false); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null); setSentMessage(message);
@@ -232,6 +240,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   async function execute(planOverride?: TeamCommandPlan, existingSelectionsOverride?: Record<number, string>, memberSelectionsOverride?: Record<number, string>) {
     const activePlan = planOverride ?? plan;
     if (!activePlan) return;
+    const conversationIsArabic = conversationLanguageRef.current ? conversationLanguageRef.current === "ar" : language === "ar";
     const activeExistingSelections = existingSelectionsOverride ?? existingSelections;
     const activeMemberSelections = memberSelectionsOverride ?? memberSelections;
     setBusy(true); setError("");
@@ -303,7 +312,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   }
 
   const pageIsArabic = language === "ar";
-  const conversationIsArabic = sentMessage ? /[\u0600-\u06FF]/.test(sentMessage) : pageIsArabic;
+  const conversationIsArabic = (conversationLanguage ?? conversationLanguageRef.current) ? (conversationLanguage ?? conversationLanguageRef.current) === "ar" : pageIsArabic;
   const isArabic = conversationIsArabic;
   const copy = conversationIsArabic ? {
     title: "مساعد إدارة الفريق", online: "متصل الآن", greeting: "كيف أقدر أساعدك في إدارة الفريق؟", example: "اكتبي طلبك بالعربي أو الإنجليزي، مثل: «أنشئ فريق جودة وأضف سارة كقائدة فريق».", preparing: "جارٍ تجهيز مراجعة طلبك…", completed: "تم تنفيذ الطلب", more: "هل تحتاجين مساعدة أخرى؟", newTask: "مهمة جديدة", end: "إنهاء المحادثة", review: "راجعي الخطة ثم أكدي التنفيذ", placeholder: "اكتبي طلبك لإدارة الفريق…", quick: [
