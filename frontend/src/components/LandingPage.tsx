@@ -23,13 +23,13 @@ export default function LandingPage({ onStart }: LandingPageProps) {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-background text-[#071c33]">
-      <header className="meyaar-landing-header absolute inset-x-0 top-2 z-30 mx-auto flex h-14 w-[calc(100%-1rem)] items-center justify-between gap-5 rounded-2xl border border-slate-200/70 px-5 shadow-[0_10px_30px_rgba(15,23,42,.07)] backdrop-blur-xl sm:w-[85%] sm:px-8 lg:px-10">
+      <header className="meyaar-landing-header fixed inset-x-0 top-2 z-30 mx-auto flex h-14 w-[calc(100%-1rem)] items-center justify-between gap-5 rounded-2xl border border-slate-200/70 px-5 shadow-[0_10px_30px_rgba(15,23,42,.07)] backdrop-blur-xl sm:w-[85%] sm:px-8 lg:px-10">
         <a href="#platform" className="flex items-center gap-3" aria-label="Meyaar home">
           <span className="relative size-10 overflow-hidden rounded-lg bg-white"><Image src="/branding/meyaar-version-three-logo.png" alt="شعار معيار" fill sizes="40px" className="object-contain" /></span>
         </a>
         <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-9 whitespace-nowrap text-sm font-semibold text-slate-600 md:flex rtl:left-auto rtl:right-1/2 rtl:translate-x-1/2">
           <a href="#platform" className="transition hover:text-blue-600">{t("Platform")}</a>
-          <a href="#capabilities" className="transition hover:text-blue-600">{t("How it Works")}</a>
+          <a href="#how-it-works" className="transition hover:text-blue-600">{t("How it Works")}</a>
           <a href="#about" className="transition hover:text-blue-600">{t("About")}</a>
         </nav>
         <DisplayControls />
@@ -40,7 +40,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
         <div className="meyaar-third-hero-overlay absolute inset-0 bg-[linear-gradient(90deg,rgba(250,248,242,.34)_0%,rgba(250,248,242,.12)_45%,rgba(250,248,242,0)_72%)] rtl:bg-[linear-gradient(270deg,rgba(250,248,242,.34)_0%,rgba(250,248,242,.12)_45%,rgba(250,248,242,0)_72%)]" />
 
         <div className="relative z-10 grid min-h-[620px] items-center px-7 pb-52 pt-8 sm:h-full sm:min-h-0 sm:px-12 sm:pb-28 lg:px-16 xl:px-20">
-          <div id="about" className="max-w-[520px] translate-y-2 py-2 sm:translate-y-3">
+          <div className="max-w-[520px] translate-y-2 py-2 sm:translate-y-3">
             <div className="mb-4 flex items-center gap-3 text-[9px] font-extrabold uppercase tracking-[0.28em] text-[#31577f]"><span>{t("Geospatial AI Platform")}</span><span className="h-px w-10 bg-blue-500/60" /></div>
             <h1 className="text-[2.15rem] font-black leading-[1.05] tracking-[-0.04em] sm:text-[2.35rem] xl:text-[2.5rem]">
               <span className="block">{t("Validate Geospatial Data.")}</span>
@@ -53,9 +53,17 @@ export default function LandingPage({ onStart }: LandingPageProps) {
           </div>
         </div>
 
-        <div id="capabilities" className="meyaar-capabilities absolute inset-x-5 bottom-4 z-20 grid grid-cols-1 gap-1 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-[0_14px_40px_rgba(7,28,51,.16)] backdrop-blur-xl sm:left-12 sm:right-auto sm:w-[600px] sm:grid-cols-3 lg:left-16 xl:left-20 rtl:sm:left-auto rtl:sm:right-12 rtl:lg:right-16 rtl:xl:right-20">
+        <div className="meyaar-capabilities absolute inset-x-5 bottom-4 z-20 grid grid-cols-1 gap-1 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-[0_14px_40px_rgba(7,28,51,.16)] backdrop-blur-xl sm:left-12 sm:right-auto sm:w-[600px] sm:grid-cols-3 lg:left-16 xl:left-20 rtl:sm:left-auto rtl:sm:right-12 rtl:lg:right-16 rtl:xl:right-20">
           {capabilities.map((item, index) => <div key={item.title} className={`flex min-h-[58px] items-center gap-2.5 px-3 py-1 ${index > 0 ? "sm:border-s sm:border-slate-400/40" : ""}`}><span className="flex size-8 shrink-0 items-center justify-center text-blue-600"><CapabilityIcon type={item.icon} /></span><div><p className="text-xs font-extrabold text-[#071c33]">{t(item.title)}</p><p className="mt-0.5 text-[10px] text-slate-600">{t(item.subtitle)}</p></div></div>)}
         </div>
+      </section>
+
+      <section id="how-it-works" className="scroll-mt-24 bg-[#f7faf7] px-6 py-20 sm:px-12 lg:px-20">
+        <div className="mx-auto max-w-6xl text-center"><p className="text-xs font-black uppercase tracking-[.22em] text-blue-600">{language === "ar" ? "كيف تعمل المنصة" : "How it works"}</p><h2 className="mt-3 text-3xl font-black text-[#17332f]">{language === "ar" ? "من البيانات إلى قرار موثوق" : "From data to a reliable decision"}</h2><div className="mt-10 grid gap-4 md:grid-cols-3">{[{ ar: "ارفع بياناتك", en: "Upload your data", bodyAr: "اختر ملفات البيانات المكانية أو صور الخرائط.", bodyEn: "Choose geospatial files or map imagery." }, { ar: "نفحص الجودة", en: "We validate quality", bodyAr: "يطبق معيار قواعد الجودة والهندسة والطوبولوجيا.", bodyEn: "Meyaar applies quality, geometry, and topology rules." }, { ar: "راجع النتائج", en: "Review results", bodyAr: "استعرض الأخطاء على الخريطة واتبع التوصيات.", bodyEn: "Inspect mapped issues and follow recommendations." }].map((step, index) => <article key={step.en} className="rounded-2xl border border-blue-100 bg-white p-7 text-start shadow-sm"><span className="flex size-10 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">{index + 1}</span><h3 className="mt-5 text-xl font-bold text-[#17332f]">{language === "ar" ? step.ar : step.en}</h3><p className="mt-2 text-sm leading-7 text-slate-600">{language === "ar" ? step.bodyAr : step.bodyEn}</p></article>)}</div></div>
+      </section>
+
+      <section id="about" className="scroll-mt-24 bg-white px-6 py-20 sm:px-12 lg:px-20">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1fr_.8fr]"><div><p className="text-xs font-black uppercase tracking-[.22em] text-blue-600">{language === "ar" ? "عن معيار" : "About Meyaar"}</p><h2 className="mt-3 text-3xl font-black text-[#17332f]">{language === "ar" ? "منصة سعودية لجودة البيانات المكانية" : "A Saudi platform for geospatial data quality"}</h2><p className="mt-5 max-w-2xl text-base leading-8 text-slate-600">{language === "ar" ? "يساعد معيار فرق البيانات على اكتشاف الأخطاء المكانية، قياس الالتزام، وفهم النتائج من خلال خرائط تفاعلية وتوصيات مدعومة بالذكاء الاصطناعي." : "Meyaar helps data teams detect spatial errors, measure compliance, and understand results through interactive maps and AI-assisted recommendations."}</p><button type="button" onClick={onStart} className="mt-7 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white hover:bg-blue-700">{language === "ar" ? "ابدأ الفحص" : "Start validation"}</button></div><div className="rounded-3xl border border-blue-100 bg-blue-50 p-8"><div className="grid grid-cols-2 gap-3 text-center"><div className="rounded-2xl bg-white p-5"><strong className="text-2xl text-blue-700">GeoSA</strong><p className="mt-1 text-xs text-slate-500">{language === "ar" ? "قواعد متوافقة" : "Aligned rules"}</p></div><div className="rounded-2xl bg-white p-5"><strong className="text-2xl text-blue-700">AI</strong><p className="mt-1 text-xs text-slate-500">{language === "ar" ? "توصيات مفهومة" : "Clear guidance"}</p></div></div></div></div>
       </section>
     </main>
   );
