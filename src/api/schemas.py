@@ -1,8 +1,14 @@
 from typing import Any, Literal
 
-# Public API contracts keep validation consistent between routes and clients.
-
 from pydantic import BaseModel, Field
+
+
+class UnifiedInspectionResponse(BaseModel):
+    filename: str
+    input_type: Literal["vector", "image"]
+    status: Literal["completed"] = "completed"
+    analysis_id: str | None = None
+    result: dict[str, Any]
 
 
 class ImageInspectionResponse(BaseModel):
@@ -45,7 +51,12 @@ class MapElementSuggestionRequest(BaseModel):
     """A user-requested preview; this request never edits an uploaded image."""
 
     filename: str = Field(min_length=1, max_length=500)
-    element: Literal["title", "legend", "scale", "north_arrow"]
+    element: Literal[
+        "title",
+        "legend",
+        "scale",
+        "north_arrow",
+    ]
 
 
 class MapElementSuggestion(BaseModel):
@@ -56,7 +67,12 @@ class MapElementSuggestion(BaseModel):
 
 
 class MapElementSuggestionResponse(BaseModel):
-    element: Literal["title", "legend", "scale", "north_arrow"]
+    element: Literal[
+        "title",
+        "legend",
+        "scale",
+        "north_arrow",
+    ]
     suggestion: MapElementSuggestion
     reason: str
 
@@ -73,6 +89,15 @@ class VectorProcessingResponse(BaseModel):
     validation: dict[str, Any]
     analysis: dict[str, Any]
     compliance_score: float = 100.0
+    total_features: int = 0
+    affected_features: int = 0
+    total_findings: int = 0
+    error_rate: float = 0.0
+    quality_score: float = 100.0
+    quality_before: dict[str, Any] = Field(default_factory=dict)
+    quality_after: dict[str, Any] = Field(default_factory=dict)
+    quality_improvement: float = 0.0
+    validation_after: dict[str, Any] | None = None
     layer_geojson: dict[str, Any] = Field(
         default_factory=lambda: {
             "type": "FeatureCollection",
@@ -84,8 +109,16 @@ class VectorProcessingResponse(BaseModel):
 
 
 class ErrorReviewUpdate(BaseModel):
-    status: Literal["new", "confirmed", "resolved", "false_positive"]
-    comment: str = Field(default="", max_length=2000)
+    status: Literal[
+        "new",
+        "confirmed",
+        "resolved",
+        "false_positive",
+    ]
+    comment: str = Field(
+        default="",
+        max_length=2000,
+    )
 
 
 class ErrorReviewResponse(ErrorReviewUpdate):
@@ -94,19 +127,40 @@ class ErrorReviewResponse(ErrorReviewUpdate):
 
 
 class VoiceSynthesisRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=4000)
-    voice: str = Field(default="lulwa", max_length=50)
+    text: str = Field(
+        min_length=1,
+        max_length=4000,
+    )
+    voice: str = Field(
+        default="lulwa",
+        max_length=50,
+    )
 
 
 class RegisterRequest(BaseModel):
-    name: str = Field(min_length=2, max_length=100)
-    email: str = Field(min_length=5, max_length=254)
-    password: str = Field(min_length=8, max_length=128)
+    name: str = Field(
+        min_length=2,
+        max_length=100,
+    )
+    email: str = Field(
+        min_length=5,
+        max_length=254,
+    )
+    password: str = Field(
+        min_length=8,
+        max_length=128,
+    )
 
 
 class LoginRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=254)
-    password: str = Field(min_length=1, max_length=128)
+    email: str = Field(
+        min_length=3,
+        max_length=254,
+    )
+    password: str = Field(
+        min_length=1,
+        max_length=128,
+    )
 
 
 class UserResponse(BaseModel):
@@ -115,7 +169,11 @@ class UserResponse(BaseModel):
     email: str | None = None
     username: str | None = None
     must_change_password: bool = False
-    role: Literal["manager", "leader", "member"] | None = None
+    role: Literal[
+        "manager",
+        "leader",
+        "member",
+    ] | None = None
     team_id: str | None = None
     team_name: str | None = None
     invite_code: str | None = None
@@ -127,45 +185,90 @@ class AuthResponse(BaseModel):
 
 
 class TeamInviteRequest(BaseModel):
-    email: str = Field(min_length=5, max_length=254)
+    email: str = Field(
+        min_length=5,
+        max_length=254,
+    )
 
 
 class TeamCreateRequest(BaseModel):
-    name: str = Field(min_length=2, max_length=100)
+    name: str = Field(
+        min_length=2,
+        max_length=100,
+    )
 
 
 class TeamJoinRequest(BaseModel):
-    invite_code: str = Field(min_length=4, max_length=20)
+    invite_code: str = Field(
+        min_length=4,
+        max_length=20,
+    )
 
 
 class TeamRoleUpdate(BaseModel):
-    role: Literal["leader", "member"]
+    role: Literal[
+        "leader",
+        "member",
+    ]
 
 
 class ExistingTeamMemberAddRequest(BaseModel):
-    user_id: str = Field(min_length=1, max_length=100)
-    role: Literal["leader", "member"] = "member"
+    user_id: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+    role: Literal[
+        "leader",
+        "member",
+    ] = "member"
 
 
 class PasswordChangeRequest(BaseModel):
-    current_password: str = Field(min_length=1, max_length=128)
-    new_password: str = Field(min_length=8, max_length=128)
+    current_password: str = Field(
+        min_length=1,
+        max_length=128,
+    )
+    new_password: str = Field(
+        min_length=8,
+        max_length=128,
+    )
 
 
 class NewUserInterpretRequest(BaseModel):
-    instruction: str = Field(min_length=3, max_length=1000)
+    instruction: str = Field(
+        min_length=3,
+        max_length=1000,
+    )
 
 
 class TeamCommandBatchRequest(BaseModel):
-    instruction: str = Field(min_length=3, max_length=3000)
+    instruction: str = Field(
+        min_length=3,
+        max_length=3000,
+    )
 
 
 class BatchReportRequest(BaseModel):
-    analysis_ids: list[str] = Field(min_length=1, max_length=50)
+    analysis_ids: list[str] = Field(
+        min_length=1,
+        max_length=50,
+    )
 
 
 class NewUserCreateRequest(BaseModel):
-    name: str = Field(min_length=2, max_length=100)
-    email: str = Field(min_length=5, max_length=254)
-    role: Literal["leader", "member"] = "member"
-    suggested_username: str | None = Field(default=None, max_length=50)
+    name: str = Field(
+        min_length=2,
+        max_length=100,
+    )
+    email: str = Field(
+        min_length=5,
+        max_length=254,
+    )
+    role: Literal[
+        "leader",
+        "member",
+    ] = "member"
+    suggested_username: str | None = Field(
+        default=None,
+        max_length=50,
+    )

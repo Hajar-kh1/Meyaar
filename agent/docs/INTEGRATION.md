@@ -263,6 +263,33 @@ been created yet (no error, just no continuity). No frontend change required.
 
 ---
 
+### Orchestration entry point (one upload → vector or image) — backend wiring
+
+`agent/orchestrator.py` exposes the single entry for an uploaded file:
+
+```python
+from agent.orchestrator import run_meyaar_agent
+
+out = run_meyaar_agent(filename, content, requested_layer=None)
+# out == {"input_type": "vector"|"image", "result": <pipeline result>}
+```
+
+- Routing is **deterministic** (extension + content signature) — no LLM, no
+  API key, instant. The agent interprets *after* routing, it never decides
+  the route.
+- Vector files go to `src.api.vector_pipeline.process_vector_upload`;
+  images go through `src.vision.image_loader.inspect_image` then
+  `src.vision.vision_pipeline.run_vision_pipeline` (result as JSON).
+- Downstream errors propagate untouched (`InvalidVectorFileError`,
+  `InvalidImageError`, `VisionModelNotConfiguredError`, ...) so the API
+  keeps its existing error mapping.
+- Suggested endpoint (backend role, e.g. `POST /inspect`): read the file +
+  size limits as today, then call `run_meyaar_agent` in a threadpool and
+  return `{"input_type": ..., "result": ...}`. HTTP/auth/size concerns stay
+  in `src/api/main.py`.
+
+---
+
 ## 5. Status field — UI MUST respect this (most important rule)
 
 `status` per analysis is one of:

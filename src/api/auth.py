@@ -1,16 +1,19 @@
 from __future__ import annotations
-
+from fastapi import HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import hashlib
 import hmac
 import os
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy import create_engine, text
 
-
+bearer_scheme = HTTPBearer(
+    auto_error=False,
+    scheme_name="BearerAuth",
+)
 SESSION_DAYS = 14
 
 
@@ -163,34 +166,82 @@ def create_session(connection, user_id: str) -> str:
     })
     return token
 
+def current_user(
+    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
+) -> dict:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Sign in is required.",
+        )
 
-def current_user(authorization: str | None = Header(default=None)) -> dict:
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="Sign in is required.")
-    token = authorization.split(" ", 1)[1].strip()
+    token = credentials.credentials.strip()
+
     engine = database_engine()
+
     with engine.begin() as connection:
         ensure_app_tables(connection)
-        row = connection.execute(text("""
-            SELECT u.user_id, u.name, u.email, u.username, u.must_change_password, m.role, u.active_team_id AS team_id, u.created_at,
-                   t.name AS team_name, t.invite_code
-            FROM public.auth_sessions s
-            JOIN public.app_users u ON u.user_id = s.user_id
-            LEFT JOIN public.team_memberships m ON m.user_id = u.user_id AND m.team_id = u.active_team_id
-            LEFT JOIN public.teams t ON t.team_id = u.active_team_id
-            WHERE s.token_hash = :token_hash AND s.expires_at > CURRENT_TIMESTAMP
-        """), {"token_hash": token_hash(token)}).mappings().first()
+
+        row = connection.execute(
+            text("""
+                SELECT
+                    u.user_id,
+                    u.name,
+                    u.email,
+                    u.username,
+                    u.must_change_password,
+                    m.role,
+                    u.active_team_id AS team_id,
+                    u.created_at,
+                    t.name AS team_name,
+                    t.invite_code
+                FROM public.auth_sessions s
+                JOIN public.app_users u
+                    ON u.user_id = s.user_id
+                LEFT JOIN public.team_memberships m
+                    ON m.user_id = u.user_id
+                    AND m.team_id = u.active_team_id
+                LEFT JOIN public.teams t
+                    ON t.team_id = u.active_team_id
+                WHERE
+                    s.token_hash = :token_hash
+                    AND s.expires_at > CURRENT_TIMESTAMP
+            """),
+            {
+                "token_hash": token_hash(token),
+            },
+        ).mappings().first()
+
         if row:
-            connection.execute(text("UPDATE public.app_users SET last_seen = CURRENT_TIMESTAMP WHERE user_id = :user_id"), {"user_id": str(row["user_id"])})
+            connection.execute(
+                text("""
+                    UPDATE public.app_users
+                    SET last_seen = CURRENT_TIMESTAMP
+                    WHERE user_id = :user_id
+                """),
+                {
+                    "user_id": str(row["user_id"]),
+                },
+            )
+
     if not row:
-        raise HTTPException(status_code=401, detail="Your session is invalid or expired.")
+        raise HTTPException(
+            status_code=401,
+            detail="Your session is invalid or expired.",
+        )
+
     result = dict(row)
     result["user_id"] = str(row["user_id"])
-    result["team_id"] = str(row["team_id"]) if row["team_id"] else None
+    result["team_id"] = (
+        str(row["team_id"])
+        if row["team_id"]
+        else None
+    )
+
     if result["role"] not in ("manager", "leader"):
         result["invite_code"] = None
-    return result
 
+    return result
 
 def require_run_access(connection, user: dict, run_id: str) -> None:
     allowed = connection.execute(text("""
