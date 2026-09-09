@@ -124,6 +124,21 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
       await execute();
       return true;
     }
+    const memberActionIndex = plan.actions.findIndex((action, index) => (action.action === "remove" || action.action === "change_role") && !memberSelections[index]);
+    if (memberActionIndex >= 0) {
+      const options = candidates(plan.actions[memberActionIndex]);
+      const selected = /^\d+$/.test(normalized)
+        ? options[Number(normalized) - 1]
+        : options.find((member) => [member.name, member.email || ""].some((value) => value.toLowerCase() === normalized));
+      if (selected) {
+        const selections = { ...memberSelections, [memberActionIndex]: selected.user_id };
+        setMemberSelections(selections);
+        await execute(plan, existingSelections, selections);
+      } else {
+        setPlan({ ...plan, reply: conversationIsArabic ? "اختاري رقمًا صحيحًا من القائمة." : "Please choose a valid number from the list." });
+      }
+      return true;
+    }
     const addIndex = plan.actions.findIndex((action) => action.action === "add");
     if (addIndex >= 0) {
       const matches = directoryMatches[addIndex] ?? [];
@@ -131,8 +146,9 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
       const selectedByText = matches.find((entry) => [entry.name, entry.email ?? "", entry.username ?? ""].some((value) => value.toLowerCase() === normalized));
       const selected = selectedByNumber ?? selectedByText;
       if (selected) {
-        setExistingSelections({ ...existingSelections, [addIndex]: selected.user_id });
-        setPlan({ ...plan, reply: conversationIsArabic ? `تمام، تقصدين ${selected.name}. بضيفها ك${plan.actions[addIndex].role === "leader" ? "قائدة فريق" : "عضو"}. اكتبي «موافق» للتنفيذ.` : `Got it — you mean ${selected.name}. I’ll add this account as ${plan.actions[addIndex].role}. Type “confirm” to proceed.` });
+        const selections = { ...existingSelections, [addIndex]: selected.user_id };
+        setExistingSelections(selections);
+        await execute(plan, selections);
         return true;
       }
       const email = message.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]?.toLowerCase();
@@ -140,7 +156,9 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         const actions = plan.actions.map((action, index) => index === addIndex ? { ...action, email } : action);
         const action = actions[addIndex];
         const username = action.suggested_username || action.name?.toLowerCase().replace(/\s+/g, ".") || "user";
-        setPlan({ ...plan, actions, reply: conversationIsArabic ? `ممتاز، بإنشئ حساب ${action.name} باسم مستخدم ${username}، ودورها ${action.role === "leader" ? "قائدة فريق" : "عضو"}، وبرسل بيانات الدخول إلى ${email}. اكتبي «موافق» للتنفيذ.` : `Great. I’ll create ${action.name} with username ${username} as ${action.role}, and send the credentials to ${email}. Type “confirm” to proceed.` });
+        const nextPlan = { ...plan, actions, reply: conversationIsArabic ? `ممتاز، بإنشئ حساب ${action.name} باسم مستخدم ${username}، ودورها ${action.role === "leader" ? "قائدة فريق" : "عضو"}، وبرسل بيانات الدخول إلى ${email}.` : `Great. I’ll create ${action.name} with username ${username} as ${action.role}, and send the credentials to ${email}.` };
+        setPlan(nextPlan);
+        await execute(nextPlan);
         return true;
       }
       setPlan({ ...plan, reply: conversationIsArabic ? "أحتاج البريد الشخصي بصيغة صحيحة، مثل name@example.com." : "Please send a valid personal email, such as name@example.com." });
@@ -190,10 +208,17 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           const username = action.suggested_username || action.name?.toLowerCase().replace(/\s+/g, ".") || "user";
           next.reply = /[\u0600-\u06FF]/.test(message) ? `تمام، بجهز حساب ${action.name} باسم مستخدم ${username} ودورها ${action.role === "leader" ? "قائدة فريق" : "عضو"}. أرسلي بريدها الشخصي عشان أرسل لها بيانات الدخول.` : `I’ll prepare ${action.name} with username ${username} as ${action.role}. Please send their personal email so I can deliver the credentials.`;
         }
-      } else {
-        next.reply = /[\u0600-\u06FF]/.test(message) ? `${next.reply} اكتبي «موافق» للتنفيذ.` : `${next.reply} Type “confirm” to proceed.`;
       }
       setMemberSelections(selections); setPlan(next);
+      const needsMemberChoice = next.actions.some((action, index) => (action.action === "remove" || action.action === "change_role") && !selections[index]);
+      const needsSafetyConfirmation = next.actions.some((action) => action.action === "delete_team");
+      if (needsMemberChoice) {
+        const actionIndex = next.actions.findIndex((action, index) => (action.action === "remove" || action.action === "change_role") && !selections[index]);
+        const choices = candidates(next.actions[actionIndex]).map((member, index) => `${index + 1}) ${member.name} — ${member.email}`).join("\n");
+        next.reply = /[\u0600-\u06FF]/.test(message) ? `لقيت أكثر من عضو محتمل. اختاري الرقم وبنفذ مباشرة:\n${choices}` : `I found multiple possible members. Choose a number and I’ll proceed immediately:\n${choices}`;
+        setPlan({ ...next });
+      }
+      if (unresolvedAddIndex < 0 && !needsMemberChoice && !needsSafetyConfirmation) await execute(next, {}, selections);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The assistant could not understand the request.");
     } finally { setBusy(false); }
@@ -204,21 +229,24 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     setPlan({ ...plan, actions: plan.actions.map((action, actionIndex) => actionIndex === index ? { ...action, ...patch } : action) });
   }
 
-  async function execute() {
-    if (!plan) return;
+  async function execute(planOverride?: TeamCommandPlan, existingSelectionsOverride?: Record<number, string>, memberSelectionsOverride?: Record<number, string>) {
+    const activePlan = planOverride ?? plan;
+    if (!activePlan) return;
+    const activeExistingSelections = existingSelectionsOverride ?? existingSelections;
+    const activeMemberSelections = memberSelectionsOverride ?? memberSelections;
     setBusy(true); setError("");
     const completed: string[] = [];
     try {
       let activeUser = await getMe();
       let activeTeamId = activeUser.team_id;
-      for (let index = 0; index < plan.actions.length; index += 1) {
-        const action = plan.actions[index];
+      for (let index = 0; index < activePlan.actions.length; index += 1) {
+        const action = activePlan.actions[index];
         if (action.action === "create_team") {
           if (!action.team_name?.trim()) throw new Error(conversationIsArabic ? "أدخلي اسم الفريق الجديد." : "Enter a name for the new team.");
           await createTeam(action.team_name.trim()); activeUser = await getMe(); activeTeamId = activeUser.team_id;
           completed.push(conversationIsArabic ? `تم إنشاء فريق: ${action.team_name}` : `Created team: ${action.team_name}`);
         } else if (action.action === "add") {
-          const existingId = existingSelections[index];
+          const existingId = activeExistingSelections[index];
           if (existingId) {
             if (!activeTeamId) throw new Error(conversationIsArabic ? "أنشئي فريقًا أو اختاري فريقًا أولًا." : "Create or select a team first.");
             const added = await addExistingTeamMember(activeTeamId, existingId, action.role);
@@ -229,13 +257,13 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
             completed.push(conversationIsArabic ? `تم إنشاء حساب ${created.name} وإضافته بصفة ${created.role === "leader" ? "قائد فريق" : "عضو"}، وأُرسلت بيانات الدخول إلى ${created.personal_email}.` : `Created and added ${created.name} as ${created.role}. Credentials were sent privately to ${created.personal_email}.`);
           }
         } else if (action.action === "remove") {
-          if (!activeTeamId || !memberSelections[index]) throw new Error(conversationIsArabic ? `اختاري العضو للإجراء ${index + 1}.` : `Choose the member for action ${index + 1}.`);
-          const selected = data.members.find((member) => member.user_id === memberSelections[index]);
-          await removeTeamMember(activeTeamId, memberSelections[index]); completed.push(conversationIsArabic ? `تمت إزالة ${selected?.name ?? "العضو"} من الفريق.` : `Removed ${selected?.name ?? "member"} from the team.`);
+          if (!activeTeamId || !activeMemberSelections[index]) throw new Error(conversationIsArabic ? `اختاري العضو للإجراء ${index + 1}.` : `Choose the member for action ${index + 1}.`);
+          const selected = data.members.find((member) => member.user_id === activeMemberSelections[index]);
+          await removeTeamMember(activeTeamId, activeMemberSelections[index]); completed.push(conversationIsArabic ? `تمت إزالة ${selected?.name ?? "العضو"} من الفريق.` : `Removed ${selected?.name ?? "member"} from the team.`);
         } else if (action.action === "change_role") {
-          if (!activeTeamId || !memberSelections[index]) throw new Error(conversationIsArabic ? `اختاري العضو للإجراء ${index + 1}.` : `Choose the member for action ${index + 1}.`);
-          const selected = data.members.find((member) => member.user_id === memberSelections[index]);
-          await updateTeamMemberRole(activeTeamId, memberSelections[index], action.role);
+          if (!activeTeamId || !activeMemberSelections[index]) throw new Error(conversationIsArabic ? `اختاري العضو للإجراء ${index + 1}.` : `Choose the member for action ${index + 1}.`);
+          const selected = data.members.find((member) => member.user_id === activeMemberSelections[index]);
+          await updateTeamMemberRole(activeTeamId, activeMemberSelections[index], action.role);
           completed.push(conversationIsArabic ? `تم تغيير دور ${selected?.name ?? "العضو"} إلى ${action.role === "leader" ? "قائد فريق" : "عضو"}.` : `Changed ${selected?.name ?? "member"} to ${action.role === "leader" ? "Team Leader" : "Member"}.`);
         } else if (action.action === "delete_team") {
           if (!activeTeamId) throw new Error(conversationIsArabic ? "لا يوجد فريق نشط لحذفه." : "No active team to delete.");
