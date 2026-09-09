@@ -32,7 +32,7 @@ export default function AppSidebar({ activeView, onNavigate, onLogout }: AppSide
   return (
     <aside className="fixed inset-x-0 bottom-0 z-[3000] flex shrink-0 flex-col border-e border-[#e1e6e3] bg-[#fdfefc] text-[#17332f] shadow-[0_-8px_30px_rgba(7,45,38,.08)] lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[150px] lg:shadow-[2px_0_18px_rgba(18,60,53,.045)] rtl:lg:left-auto rtl:lg:right-0">
       <div className="hidden h-[96px] shrink-0 items-center justify-center border-b border-[#eef1ef] px-3 lg:flex">
-        <Image src="/branding/meyaar-version-three-logo.png" alt="شعار معيار" width={62} height={62} className="size-[62px] object-contain" />
+        <span className="meyaar-sidebar-logo relative size-[62px] overflow-hidden rounded-xl"><Image src="/branding/meyaar-version-three-logo.png" alt="شعار معيار" fill sizes="62px" className="meyaar-logo-light object-contain" /><Image src="/branding/meyaar-logo-dark.png" alt="شعار معيار للوضع الداكن" fill sizes="62px" unoptimized className="meyaar-logo-dark object-contain" /></span>
       </div>
       <nav className="grid grid-cols-4 gap-1 p-2 lg:flex lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-3 lg:pt-4">
         {items.map((item) => (

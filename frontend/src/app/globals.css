@@ -107,6 +107,7 @@ html[lang="ar"] :where(h1, h2, h3, h4, h5, h6, p, a, button, label, th, td) {
 .meyaar-logo-dark { display: none; }
 .meyaar-processing-map-dark { display: none; }
 .meyaar-landing-logo { background: #fff; }
+.meyaar-sidebar-logo { background: transparent; }
 
 .meyaar-capabilities {
   background: rgb(241 248 244 / .95);
@@ -220,6 +221,7 @@ textarea:focus-visible {
   border-color: #2a5b5b;
 }
 .dark .meyaar-landing-logo { background: #071b23; }
+.dark .meyaar-sidebar-logo { background: #12333d; }
 
 .dark .meyaar-third-hero-overlay {
   background: linear-gradient(90deg, rgb(6 24 31 / .34) 0%, rgb(6 24 31 / .08) 50%, transparent 74%);
