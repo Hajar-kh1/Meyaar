@@ -212,7 +212,7 @@ textarea:focus-visible {
 .dark .meyaar-logo-light { display: none; }
 .dark .meyaar-logo-dark {
   display: block;
-  transform: scale(1.55);
+  transform: scale(.9);
 }
 .dark .meyaar-processing-map-light { display: none; }
 .dark .meyaar-processing-map-dark { display: block; }
