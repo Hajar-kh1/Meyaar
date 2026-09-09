@@ -130,6 +130,15 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
       await execute(undefined, undefined, undefined, true);
       return true;
     }
+    const deleteActionIndex = plan.actions.findIndex((action) => action.action === "delete_team");
+    if (deleteActionIndex >= 0) {
+      if (normalized === data.team.name.trim().toLowerCase()) {
+        await execute(plan, existingSelections, memberSelections, true, message, { [deleteActionIndex]: data.team.name });
+      } else {
+        setPlan({ ...plan, reply: conversationIsArabic ? `للتأكيد اكتبي اسم الفريق بالضبط: ${data.team.name}` : `To confirm, type the team name exactly: ${data.team.name}` });
+      }
+      return true;
+    }
     const memberActionIndex = plan.actions.findIndex((action, index) => (action.action === "remove" || action.action === "change_role") && !memberSelections[index]);
     if (memberActionIndex >= 0) {
       const options = candidates(plan.actions[memberActionIndex]);
@@ -230,6 +239,10 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         next.reply = /[\u0600-\u06FF]/.test(message) ? `لقيت أكثر من عضو محتمل. اختاري الرقم وبنفذ مباشرة:\n${choices}` : `I found multiple possible members. Choose a number and I’ll proceed immediately:\n${choices}`;
         setPlan({ ...next });
       }
+      if (needsSafetyConfirmation) {
+        next.reply = /[\u0600-\u06FF]/.test(message) ? `حذف فريق ${data.team.name} نهائي وسيحذف بياناته المرتبطة. إذا تبين أكمل، اكتبي اسم الفريق بالضبط: ${data.team.name}` : `Deleting ${data.team.name} is permanent and removes its related data. To continue, type the team name exactly: ${data.team.name}`;
+        setPlan({ ...next });
+      }
       if (unresolvedAddIndex < 0 && !needsMemberChoice && !needsSafetyConfirmation) await execute(next, {}, selections, false, message);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The assistant could not understand the request.");
@@ -241,12 +254,13 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     setPlan({ ...plan, actions: plan.actions.map((action, actionIndex) => actionIndex === index ? { ...action, ...patch } : action) });
   }
 
-  async function execute(planOverride?: TeamCommandPlan, existingSelectionsOverride?: Record<number, string>, memberSelectionsOverride?: Record<number, string>, planAlreadyArchived = false, sourceMessage?: string) {
+  async function execute(planOverride?: TeamCommandPlan, existingSelectionsOverride?: Record<number, string>, memberSelectionsOverride?: Record<number, string>, planAlreadyArchived = false, sourceMessage?: string, deleteConfirmationsOverride?: Record<number, string>) {
     const activePlan = planOverride ?? plan;
     if (!activePlan) return;
     const conversationIsArabic = conversationLanguageRef.current ? conversationLanguageRef.current === "ar" : language === "ar";
     const activeExistingSelections = existingSelectionsOverride ?? existingSelections;
     const activeMemberSelections = memberSelectionsOverride ?? memberSelections;
+    const activeDeleteConfirmations = deleteConfirmationsOverride ?? deleteConfirmations;
     if (!planAlreadyArchived && activePlan.reply) setChatHistory((history) => [...history, { role: "assistant", text: activePlan.reply ?? activePlan.summary }]);
     setBusy(true); setError("");
     const completed: string[] = [];
@@ -281,7 +295,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           completed.push(conversationIsArabic ? `تم تغيير دور ${selected?.name ?? "العضو"} إلى ${action.role === "leader" ? "قائد فريق" : "عضو"}.` : `Changed ${selected?.name ?? "member"} to ${action.role === "leader" ? "Team Leader" : "Member"}.`);
         } else if (action.action === "delete_team") {
           if (!activeTeamId) throw new Error(conversationIsArabic ? "لا يوجد فريق نشط لحذفه." : "No active team to delete.");
-          if ((deleteConfirmations[index] ?? "").trim() !== data.team.name) throw new Error(conversationIsArabic ? `اكتبي ${data.team.name} لتأكيد حذف الفريق.` : `Type ${data.team.name} to confirm team deletion.`);
+          if ((activeDeleteConfirmations[index] ?? "").trim() !== data.team.name) throw new Error(conversationIsArabic ? `اكتبي ${data.team.name} لتأكيد حذف الفريق.` : `Type ${data.team.name} to confirm team deletion.`);
           activeUser = await deleteTeam(activeTeamId); activeTeamId = activeUser.team_id; completed.push(conversationIsArabic ? "تم حذف الفريق النشط." : "Deleted the active team.");
         } else if (action.action === "list_members") {
           setListedMembers(data.members);
