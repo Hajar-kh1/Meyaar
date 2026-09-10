@@ -357,8 +357,8 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   const managerInitials = (manager?.name || "You").split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 
   return (
-    <div className="team-assistant-chat fixed inset-0 z-[6000] flex items-stretch justify-end bg-slate-950/20" role="dialog" aria-modal="true">
-      <section className="flex h-full w-full max-w-[440px] flex-col overflow-hidden border-s border-emerald-100 bg-[#f7fbfa] shadow-[-18px_0_55px_rgba(2,38,33,.16)]">
+    <div className="team-assistant-chat fixed inset-0 z-[6000] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true">
+      <section className="flex h-[min(640px,86vh)] w-full max-w-[460px] flex-col overflow-hidden rounded-[22px] border border-emerald-100 bg-[#f7fbfa] shadow-[0_24px_70px_rgba(2,38,33,.24)]">
         <header dir="ltr" className="grid grid-cols-[52px_1fr_32px] items-center gap-2 border-b border-emerald-100 bg-white px-4 py-3.5">
           <img src="/branding/meyaar-version-three-logo.png" alt="Meyaar" className="h-12 w-12 object-contain" />
           <div dir={pageIsArabic ? "rtl" : "ltr"} className="text-center"><h2 className="text-[15px] font-black text-[#082a35]">{pageIsArabic ? "مساعد إدارة الفريق" : "Team Management Assistant"}</h2><p className="mt-0.5 text-[11px] text-slate-500">{pageIsArabic ? "أنا هنا لمساعدتك في إدارة أعضاء الفريق" : "Here to help you manage your team"}</p></div>
@@ -366,7 +366,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         </header>
 
         <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,#f8fcfb_0%,#f3faf7_100%)] p-4">
-          {!sentMessage && <AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble>}
+          {!sentMessage && <><AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble><div className="ms-10 overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">{copy.quick.map((item, index) => <button key={item.title} type="button" disabled={busy} onClick={() => void review(item.prompt)} className="group flex w-full items-center gap-3 border-b border-slate-100 px-4 py-2.5 text-start transition last:border-0 hover:bg-emerald-50 disabled:opacity-60"><span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#e8f6f1] text-sm font-black text-[#087363]">{["+", "◇", "↻", "☷", "◫"][index]}</span><span className="min-w-0 flex-1"><strong className="block text-sm text-[#082a35]">{item.title}</strong><small className="block truncate text-[11px] text-slate-500">{item.hint}</small></span><span className="text-lg text-[#087363] transition group-hover:translate-x-0.5 rtl:rotate-180">›</span></button>)}</div></>}
           {chatHistory.map((message, index) => message.role === "user"
             ? <div key={index} dir="ltr" className="flex items-start justify-end gap-2.5"><div dir={conversationIsArabic ? "rtl" : "ltr"} className="max-w-[78%] whitespace-pre-line rounded-2xl rounded-tr-sm bg-[#dff2eb] px-4 py-3 text-sm font-medium leading-6 text-[#0a4038] shadow-sm">{message.text}</div><span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#087363] text-[11px] font-black text-white">{managerInitials}</span></div>
             : <AssistantBubble key={index}><p className="whitespace-pre-line text-[#071c33]">{message.text}</p></AssistantBubble>)}
