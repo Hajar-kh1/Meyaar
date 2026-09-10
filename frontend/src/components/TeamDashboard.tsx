@@ -48,7 +48,29 @@ export default function TeamDashboard({ user, onTeamChange }: { user: AuthUser; 
     ["Detected errors", data.summary.total_errors],
     ["Average compliance", data.summary.average_compliance == null ? "—" : `${data.summary.average_compliance}%`],
   ];
-  const teamSwitcher = <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-100 px-4 py-3"><p className="text-xs font-bold uppercase tracking-widest text-blue-600">My teams</p></div><div className="divide-y divide-slate-100">{teams.map((team) => { const active = team.team_id === user.team_id; return <button key={team.team_id} type="button" onClick={async () => { if (active) { setWorkspaceOpen((open) => !open); return; } setWorkspaceOpen(true); onTeamChange(await activateTeam(team.team_id)); }} className={`flex w-full items-center justify-between px-4 py-3 text-start transition ${active ? "bg-blue-50 text-blue-800" : "hover:bg-slate-50"}`}><span><span className="block text-sm font-bold">{team.name}</span><span className="mt-0.5 block text-[11px] capitalize text-slate-500">{team.role === "leader" ? "Team Leader" : team.role}</span></span></button>; })}</div></section>;
+  const teamSwitcher = (
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+        <p className="text-xs font-bold uppercase tracking-widest text-blue-600">My teams</p>
+        <button
+          type="button"
+          aria-label="Create team"
+          title="Create team"
+          onClick={() => {
+            setCreatedUser(null);
+            setNewUserError("");
+            setUserPreview({ action: "create_team", name: null, email: null, team_name: "", role: "member", suggested_username: null, missing_fields: ["team_name"] });
+            setNewUserOpen(true);
+          }}
+          className="flex size-8 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-xl font-semibold leading-none text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+        >+</button>
+      </div>
+      <div className="divide-y divide-slate-100">{teams.map((team) => {
+        const active = team.team_id === user.team_id;
+        return <button key={team.team_id} type="button" onClick={async () => { if (active) { setWorkspaceOpen((open) => !open); return; } setWorkspaceOpen(true); onTeamChange(await activateTeam(team.team_id)); }} className={`flex w-full items-center justify-between px-4 py-3 text-start transition ${active ? "bg-blue-50 text-blue-800" : "hover:bg-slate-50"}`}><span><span className="block text-sm font-bold">{team.name}</span><span className="mt-0.5 block text-[11px] capitalize text-slate-500">{team.role === "leader" ? "Team Leader" : team.role}</span></span></button>;
+      })}</div>
+    </section>
+  );
   const topWorkerId = data.members.filter((member) => member.role !== "manager" && member.active_seconds_today > 0).sort((a, b) => b.active_seconds_today - a.active_seconds_today)[0]?.user_id ?? null;
   if (!workspaceOpen) return <div className="space-y-4">{teamSwitcher}</div>;
   return <div className="space-y-5">{teamSwitcher}
