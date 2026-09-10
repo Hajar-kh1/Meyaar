@@ -35,13 +35,15 @@ docker run -d --name meyaar-postgis -e POSTGRES_DB=meyaar_db \
   -e POSTGRES_HOST_AUTH_METHOD=*** -p 5432:5432 --restart unless-stopped \
   postgis/postgis:16-3.4
 
-# create the agent's tables (once — analysis, remediation audit, run summary):
+# create the agent's tables (once — analysis, remediation audit, run summary, chat memory):
 docker exec -i meyaar-postgis psql -U postgres -d meyaar_db \
   < agent/schema/agent_error_analysis.sql
 docker exec -i meyaar-postgis psql -U postgres -d meyaar_db \
   < agent/schema/agent_remediation_actions.sql
 docker exec -i meyaar-postgis psql -U postgres -d meyaar_db \
   < agent/schema/agent_run_summaries.sql
+docker exec -i meyaar-postgis psql -U postgres -d meyaar_db \
+  < agent/schema/agent_chat_messages.sql
 ```
 
 ## 3. LLM key (needed for chat / LLM explanations)
@@ -50,8 +52,9 @@ docker exec -i meyaar-postgis psql -U postgres -d meyaar_db \
 the example and add your key (any OpenAI-compatible provider):
 ```bash
 cp agent/.env.example agent/.env
-# edit agent/.env ->  MEYAAR_LLM_API_KEY=sk-or-...   (OpenRouter)
-#                     MEYAAR_LLM_MODEL=minimax/minimax-m3:free   (already set)
+# edit agent/.env ->  MEYAAR_LLM_API_KEY=***   (DeepSeek)
+#                     MEYAAR_LLM_BASE_URL=https://api.deepseek.com/v1   (already set)
+#                     MEYAAR_LLM_MODEL=deepseek-chat   (already set; DeepSeek's cheapest)
 ```
 Verify: `uv run python -c "from agent.core.config import settings; print(settings.llm_enabled)"` → True
 

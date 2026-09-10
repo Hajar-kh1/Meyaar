@@ -42,8 +42,14 @@ dependencies = [
     "streamlit>=1.63.0",
     "torch>=2.14.0",
     "transformers>=5.16.1",
-    "uvicorn[standard]>=0.29",
     "xgboost>=3.4.1",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.52.4",
+    "python-multipart>=0.0.32",
+    "pytest>=9.1.1",
+    "httpx>=0.28.1",
+    "moondream>=2.1.1",
+    "ijson>=3.5.1",
 ]
 
 [dependency-groups]

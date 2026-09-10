@@ -117,3 +117,48 @@ def test_root_serves_chat_ui_and_info_route(client):
     assert body["service"].startswith("Meyaar")
     assert "endpoints" in body and "llm" in body
     assert client.get("/health").status_code == 200
+
+
+def test_chat_endpoint_persists_memory_scoped_to_authenticated_user(client, repo, monkeypatch):
+    """POST /chat stores the turn under the authenticated user's id and the
+    next question replays the conversation."""
+    import json
+
+    import agent.chat as chat_mod
+
+    client.post(f"/api/validation/{RUN_ID}/analyze")
+    prompts: list[str] = []
+
+    class RecordingLLM:
+        def __init__(self):
+            self._i = 0
+
+        def invoke(self, prompt):
+            prompts.append(prompt)
+            answers = ["Fix the critical missing geometry first.",
+                       "As I said: critical missing geometry first."]
+            self._i += 1
+            return type("R", (), {"content": json.dumps({
+                "answer": answers[(self._i - 1) % 2], "sources": ["RD005"]})})()
+
+    monkeypatch.setattr(chat_mod, "get_llm", lambda: RecordingLLM())
+
+    r1 = client.post(f"/api/validation/{RUN_ID}/chat", json={"question": "what should I fix first?"})
+    assert r1.status_code == 200
+    body1 = r1.json()
+    assert body1["answer"] == "Fix the critical missing geometry first."
+    assert body1["sources"] == ["RD005"]
+    assert set(body1) == {"question", "answer", "sources"}   # contract unchanged
+
+    r2 = client.post(f"/api/validation/{RUN_ID}/chat", json={"question": "remind me again?"})
+    assert r2.status_code == 200
+    assert "Conversation history" in prompts[1]              # memory replayed
+    assert "what should I fix first?" in prompts[1]
+
+    # Turn persisted under the user_id the auth stub provides.
+    dev_user_id = "00000000-0000-4000-8000-000000000001"
+    history = repo.fetch_chat_history(RUN_ID, dev_user_id)
+    assert len(history) == 2
+    assert history[0]["question"] == "what should I fix first?"
+    assert history[0]["answer"] == "Fix the critical missing geometry first."
+    assert history[1]["question"] == "remind me again?"

@@ -97,7 +97,9 @@ def _cmd_chat(args) -> int:
         else:
             q = args.ask
         try:
-            out = answer_question(repo, args.run_id, q, llm=llm)
+            # user_key="cli" keeps one private memory thread per CLI session
+            # (repo instance), separate from any UI user's conversation.
+            out = answer_question(repo, args.run_id, q, llm=llm, user_key="cli")
         except Exception as exc:
             print(f"error: {exc}")
             if args.ask:

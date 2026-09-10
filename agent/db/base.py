@@ -113,6 +113,23 @@ class Repository(ABC):
         """Return the stored narrative for a run:
         {run_id, narrative, agent_model, counts} or None."""
 
+    # ── chat memory (conversation turns per user + run) ──────────────────
+    @abstractmethod
+    def save_chat_turn(self, run_id: str, user_key: str, question: str,
+                       answer: str, sources: Optional[list[str]] = None) -> bool:
+        """Persist one chat turn (question -> answer) for a conversation
+        scoped to (run_id, user_key). Never raises for chat availability:
+        callers that cannot write (e.g. the table is absent on an older DB)
+        degrade to stateless chat."""
+
+    @abstractmethod
+    def fetch_chat_history(self, run_id: str, user_key: str,
+                           limit: int = 6) -> list[dict]:
+        """Return the most recent chat turns for a (run_id, user_key)
+        conversation in chronological order:
+        [{question, answer, sources, created_at}, ...] (oldest first)."""
+
+
     # ── summary helpers ──────────────────────────────────────────────────
     def build_summary(self, results: list[ValidationResult],
                       analyses: list[ErrorAnalysis]) -> dict:

@@ -121,6 +121,16 @@ def run_rules_for_layer(engine, layer_name, error_limit=500):
                 {"run_id": run_id},
             ).scalar()
 
+            affected_features = connection.execute(
+                text("""
+                    SELECT COUNT(DISTINCT feature_id)
+                    FROM public.validation_results
+                    WHERE run_id = :run_id
+                      AND feature_id IS NOT NULL
+                """),
+                {"run_id": run_id},
+            ).scalar()
+
             error_rows = connection.execute(
                 text("""
                     SELECT
@@ -149,6 +159,7 @@ def run_rules_for_layer(engine, layer_name, error_limit=500):
             "layer_name": layer_name,
             "run_id": str(run_id),
             "total_errors": int(total_errors),
+            "affected_features": int(affected_features or 0),
             "summary": [dict(row) for row in summary_rows],
             "errors": [
                 {

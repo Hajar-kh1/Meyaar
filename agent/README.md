@@ -120,10 +120,14 @@ agent/
 ├── graph/       LangGraph: state, nodes, builder
 ├── remediation/ deterministic policy + decision service (auto_fix / review)
 ├── api/         FastAPI router + standalone app + openapi.json contract
-├── chat.py      grounded chat service (text + sources)
+├── chat.py      grounded chat service (text + sources + conversation
+│                memory — per-user turn history replayed into the prompt)
+├── orchestrator.py  deterministic upload router (vector vs image) that
+│                    forwards one file to the existing teammate pipelines —
+│                    no LLM in the routing decision (see module docstring)
 ├── voice.py     thin TTS/STT integration (macOS say + browser APIs)
 ├── schema/      agent_error_analysis.sql + agent_remediation_actions.sql
-│                + agent_run_summaries.sql (DDL)
+│                + agent_run_summaries.sql + agent_chat_messages.sql (DDL)
 ├── cli.py       terminal runner
 └── tests/       fixtures + rule/tool/graph/API/chat/voice/remediation tests
 ```
@@ -141,6 +145,7 @@ live response sample `docs/_sample_response.json`.
 psql -d meyaar_db -f agent/schema/agent_error_analysis.sql
 psql -d meyaar_db -f agent/schema/agent_remediation_actions.sql
 psql -d meyaar_db -f agent/schema/agent_run_summaries.sql
+psql -d meyaar_db -f agent/schema/agent_chat_messages.sql
 
 # 2. connection settings (defaults match src/insertion/database.py)
 cp agent/.env.example agent/.env   # edit MEYAAR_DATABASE_URL if needed
@@ -169,6 +174,8 @@ uv run uvicorn agent.api.app:app --reload
 uv run python -m agent.cli chat <run_id>                    # interactive REPL
 uv run python -m agent.cli chat <run_id> --ask "What should I fix first?"
 uv run python -m agent.cli chat <run_id> --ask "..." --speak   # read answer aloud (macOS say)
+# Chat has conversation memory: each user and run keeps its own recent thread,
+# so follow-up questions retain context in both the API and CLI.
 
 # Voice in the chat UI (http://127.0.0.1:8000/): 🎤 = ask by voice (browser
 # Web Speech API), 🔊 = read the answer aloud. Engines/config in agent/voice.py.
@@ -189,11 +196,15 @@ runs fully deterministically — same JSON schema, zero API calls, CI-safe.
 
 ```bash
 uv run pytest agent/tests -q
-# 96 tests: registry semantics for all 13 rules, tool + SQL-guard behaviour,
+# 129 tests: registry semantics for all 13 rules, tool + SQL-guard behaviour,
 # full-run analysis, heuristic classification, missing context,
 # DB failures, malformed/lying LLM output, API endpoints, spatial
-# measurements, remediation policy + the 9 trainer scenarios, and the
-# persisted per-run executive narrative.
+# measurements, remediation policy + the 9 trainer scenarios, the
+# persisted per-run executive narrative, conversation memory
+# (per-user turn persistence, replay into the prompt, trimming to the
+# recent window, best-effort fallback when the memory table is missing),
+# and the deterministic upload orchestrator (vector/image routing by
+# extension + content signature, delegation to the pipelines).
 ```
 
 ## Reliability guarantees

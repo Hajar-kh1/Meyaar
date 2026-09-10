@@ -24,6 +24,7 @@ class InMemoryRepository(Repository):
         self._remediation: list[dict] = []
         self._repaired: set[tuple[str, str]] = set()
         self._run_summaries: dict[str, dict] = {}
+        self._chat_turns: dict[tuple[str, str], list[dict]] = {}
         self._lock = threading.Lock()
 
     def seed_feature(self, layer_name: str, feature_id: str, context: dict) -> None:
@@ -151,6 +152,25 @@ class InMemoryRepository(Repository):
         with self._lock:
             row = self._run_summaries.get(run_id)
             return dict(row) if row else None
+
+    # ── chat memory (conversation turns per user + run) ──────────────────
+    def save_chat_turn(self, run_id: str, user_key: str, question: str,
+                       answer: str, sources: Optional[list[str]] = None) -> bool:
+        with self._lock:
+            turns = self._chat_turns.setdefault((run_id, user_key), [])
+            turns.append({
+                "question": question,
+                "answer": answer,
+                "sources": list(sources or []),
+            })
+        return True
+
+    def fetch_chat_history(self, run_id: str, user_key: str,
+                           limit: int = 6) -> list[dict]:
+        with self._lock:
+            turns = self._chat_turns.get((run_id, user_key), [])
+            return [dict(t) for t in turns[-limit:]]
+
 
     @property
     def repaired_features(self) -> set[tuple[str, str]]:

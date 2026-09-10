@@ -14,39 +14,23 @@ from src.reporting.charts import (
     create_quality_dimension_chart,
 )
 
-
 load_dotenv()
-
-
-# ============================================================
-# PATHS
-# ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = BASE_DIR / "templates"
 TEMPLATE_NAME = "report_template.html"
 OUTPUT_DIR = Path("outputs")
 
-
-# ============================================================
-# QUALITY DIMENSIONS
-# ============================================================
-
 RULE_TO_DIMENSION = {
-    # Roads
     "RD001": "Logical Consistency",
     "RD002": "Logical Consistency",
     "RD003": "Logical Consistency",
     "RD004": "Logical Consistency",
     "RD005": "Completeness",
-
-    # Buildings
     "BLD001": "Logical Consistency",
     "BLD002": "Logical Consistency",
     "BLD003": "Logical Consistency",
     "BLD004": "Completeness",
-
-    # General GIS
     "GIS001": "Spatial Reference",
     "GIS002": "Spatial Validity",
     "GIS003": "Completeness",
@@ -55,18 +39,7 @@ RULE_TO_DIMENSION = {
 }
 
 
-# ============================================================
-# NORMALIZATION
-# ============================================================
-
 def normalize_dataset(dataset):
-    """
-    Reporting schema for dataset.
-
-    Guarantees that the HTML template always receives
-    the same keys.
-    """
-
     return {
         "file_name": dataset.get(
             "file_name",
@@ -88,19 +61,6 @@ def normalize_dataset(dataset):
 
 
 def normalize_validation(validation):
-    """
-    Convert Validation Engine output into one
-    reporting schema.
-
-    Old engine names:
-        total_errors
-        errors_found
-
-    Reporting names:
-        total_findings
-        findings
-    """
-
     normalized_summary = []
 
     for row in validation.get(
@@ -165,10 +125,6 @@ def normalize_validation(validation):
     }
 
 
-# ============================================================
-# IMAGE -> BASE64
-# ============================================================
-
 def image_to_data_uri(image_path):
     if not image_path:
         return None
@@ -188,18 +144,29 @@ def image_to_data_uri(image_path):
     )
 
 
-# ============================================================
-# QUALITY SUMMARY
-# ============================================================
-
 def build_quality_summary(validation):
+    validation = normalize_validation(
+        validation
+    )
+
     dimensions = {}
 
     for row in validation.get(
         "summary",
         [],
     ):
-        rule_id = row["rule_id"]
+        rule_id = row.get(
+            "rule_id",
+            "Unknown",
+        )
+
+        findings = row.get(
+            "findings",
+            row.get(
+                "errors_found",
+                0,
+            ),
+        )
 
         dimension = RULE_TO_DIMENSION.get(
             rule_id,
@@ -211,7 +178,7 @@ def build_quality_summary(validation):
                 dimension,
                 0,
             )
-            + row["findings"]
+            + findings
         )
 
     rows = []
@@ -236,19 +203,29 @@ def build_quality_summary(validation):
     )
 
 
-# ============================================================
-# RULE TABLE
-# ============================================================
-
 def build_rule_rows(validation):
+    validation = normalize_validation(
+        validation
+    )
+
     rows = []
 
     for row in validation.get(
         "summary",
         [],
     ):
-        rule_id = row["rule_id"]
-        findings = row["findings"]
+        rule_id = row.get(
+            "rule_id",
+            "Unknown",
+        )
+
+        findings = row.get(
+            "findings",
+            row.get(
+                "errors_found",
+                0,
+            ),
+        )
 
         rows.append(
             {
@@ -259,12 +236,17 @@ def build_rule_rows(validation):
                         "Other",
                     )
                 ),
-                "finding_type": row[
-                    "finding_type"
-                ],
-                "severity": row[
-                    "severity"
-                ],
+                "finding_type": row.get(
+                    "finding_type",
+                    row.get(
+                        "error_type",
+                        "Unknown Finding",
+                    ),
+                ),
+                "severity": row.get(
+                    "severity",
+                    "Not Specified",
+                ),
                 "findings": findings,
                 "status": (
                     "Needs Review"
@@ -277,11 +259,11 @@ def build_rule_rows(validation):
     return rows
 
 
-# ============================================================
-# RULE CONTEXT FOR LLM
-# ============================================================
-
 def build_rule_context(validation):
+    validation = normalize_validation(
+        validation
+    )
+
     summary = validation.get(
         "summary",
         [],
@@ -296,22 +278,26 @@ def build_rule_context(validation):
     lines = []
 
     for row in summary:
+        findings = row.get(
+            "findings",
+            row.get(
+                "errors_found",
+                0,
+            ),
+        )
+
         lines.append(
             (
-                f"- {row['rule_id']}: "
-                f"{row['finding_type']} | "
-                f"Severity: {row['severity']} | "
+                f"- {row.get('rule_id', 'Unknown')}: "
+                f"{row.get('finding_type', row.get('error_type', 'Unknown Finding'))} | "
+                f"Severity: {row.get('severity', 'Not Specified')} | "
                 f"Candidate Findings: "
-                f"{row['findings']:,}"
+                f"{findings:,}"
             )
         )
 
     return "\n".join(lines)
 
-
-# ============================================================
-# LANGUAGE GUARD
-# ============================================================
 
 def sanitize_report_language(report):
     replacements = [
@@ -385,10 +371,6 @@ def sanitize_report_language(report):
     return report
 
 
-# ============================================================
-# JSON CLEANING
-# ============================================================
-
 def clean_json_response(text):
     text = text.strip()
 
@@ -414,21 +396,10 @@ def clean_json_response(text):
     return text.strip()
 
 
-# ============================================================
-# GENERATE REPORT CONTENT
-# ============================================================
-
 def generate_report_content(
     dataset,
     validation,
 ):
-    """
-    LLM writes narrative only.
-
-    Deterministic PostGIS output remains
-    the source of truth.
-    """
-
     dataset = normalize_dataset(
         dataset
     )
@@ -630,10 +601,6 @@ Return exactly:
     )
 
 
-# ============================================================
-# CREATE PDF
-# ============================================================
-
 def create_pdf(
     dataset,
     validation,
@@ -716,7 +683,6 @@ def create_pdf(
         )
     )
 
-    # Will come from frontend later
     map_snapshot_uri = None
 
     environment = Environment(

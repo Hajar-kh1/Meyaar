@@ -1,5 +1,5 @@
 """Grounded chat over a run's validation results, agent analyses and the
-remediation audit.
+remediation audit, WITH conversation memory.
 
 The chat answers questions about ONE engine run using ONLY:
   - the run summary (counts, most common error, priority actions)
@@ -7,20 +7,35 @@ The chat answers questions about ONE engine run using ONLY:
   - the rule registry (rule meaning, heuristic vs deterministic)
   - the remediation audit (what was auto-fixed, what is queued for a human,
     what failed) — so "what did the agent fix?" is answered truthfully.
+  - the conversation so far for this (run_id, user_key) — persisted chat
+    turns from agent_chat_messages — so follow-ups ("and the first error I
+    asked about?", "as you said earlier") keep their context instead of
+    re-explaining, and repeated questions don't re-derive the same answer.
 
 It never answers from general knowledge about features that are not in the
 run, and it never invents numbers. Sources returned are filtered to ids that
 actually exist in the provided context (no hallucinated citations).
+
+Memory is best-effort by design: if the chat-memory table does not exist on
+an older DB, fetching/saving is skipped with a warning and the chat still
+works exactly as before (stateless, grounded on the run only).
 """
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Optional
 
 from agent.core.config import settings
 from agent.core.llm import get_llm
 from agent.db.base import Repository
 from agent.rules.registry import get_rule
+
+logger = logging.getLogger(__name__)
+
+# How many past turns (question/answer pairs) are replayed into the prompt.
+# Bounded on purpose: memory is for continuity, not for unbounded token burn.
+CHAT_HISTORY_LIMIT = 6
 
 SYSTEM_PROMPT = (
     "You are Meyaar's chat assistant for a Saudi geospatial compliance run. "
@@ -49,7 +64,15 @@ SYSTEM_PROMPT = (
     "   guidance only). When the user asks what was fixed automatically or "
     "   what still needs a human, answer from the remediation summary/items — "
     "   do NOT claim something was auto-fixed unless the audit says applied, "
-    "   and do NOT claim something needs a human if it was already applied."
+    "   and do NOT claim something needs a human if it was already applied. "
+    "7) A 'Conversation so far' block lists your earlier questions and answers "
+    "   about THIS run. Use it for follow-ups: when the user refers back "
+    "   ('the first error', 'as you said', 'what about the roads then?'), "
+    "   honour the reference from the conversation + run context instead of "
+    "   asking again or guessing. Stay consistent with your earlier answers — "
+    "   never contradict a fact you already stated unless the run context "
+    "   clearly supports the correction. Do not repeat whole earlier answers "
+    "   verbatim; reference them briefly and build on them."
 )
 
 MAX_CHAT_ANALYSES = 100
@@ -147,9 +170,49 @@ def _code_fence_strip(text: str) -> str:
     return t.strip()
 
 
+def _load_history(repo: Repository, run_id: str, user_key: str,
+                  history_limit: int) -> list[dict]:
+    """Most recent turns for the (run_id, user_key) conversation, oldest
+    first. Best-effort: an absent memory table or failing repository returns
+    [] and the chat continues stateless (never breaks answering)."""
+    if history_limit <= 0 or not user_key:
+        return []
+    try:
+        turns = repo.fetch_chat_history(run_id, user_key, limit=history_limit)
+    except Exception:
+        logger.warning(
+            "chat memory read failed for run %s (table absent or DB error); "
+            "answering stateless", run_id, exc_info=True)
+        return []
+    return turns or []
+
+
+def _conversation_block(history: list[dict]) -> str:
+    """Render past turns as a compact numbered transcript for the prompt."""
+    if not history:
+        return ""
+    lines: list[str] = []
+    for i, turn in enumerate(history, 1):
+        question = str(turn.get("question") or "").strip()
+        answer = str(turn.get("answer") or "").strip()
+        if not question:
+            continue
+        lines.append(f"{i}. user: {question}")
+        lines.append(f"   assistant: {answer}")
+    return "\n".join(lines)
+
+
 def answer_question(repo: Repository, run_id: str, question: str,
-                    llm: Optional[Any] = None) -> dict:
-    """Answer a question about a run. Returns {question, answer, sources}."""
+                    llm: Optional[Any] = None,
+                    user_key: str = "anonymous",
+                    history_limit: int = CHAT_HISTORY_LIMIT) -> dict:
+    """Answer a question about a run. Returns {question, answer, sources}.
+
+    Conversation memory: prior turns for this (run_id, user_key) are replayed
+    into the prompt (continuity for follow-ups) and the new turn is persisted
+    to agent_chat_messages — both best-effort, so the chat stays usable and
+    stateless-safe when the memory table is absent.
+    """
     llm = llm or get_llm()
     if llm is None:
         raise RuntimeError(
@@ -158,6 +221,8 @@ def answer_question(repo: Repository, run_id: str, question: str,
 
     context = build_chat_context(repo, run_id)
     payload = json.dumps(context, ensure_ascii=False, default=str)
+    history = _load_history(repo, run_id, user_key, history_limit)
+    conversation = _conversation_block(history)
     response_language = _question_language(question)
     prompt = (
         "System instructions:\n" + SYSTEM_PROMPT +
@@ -166,6 +231,8 @@ def answer_question(repo: Repository, run_id: str, question: str,
         "Keep technical IDs unchanged internally, but omit them from the visible "
         "answer unless the user explicitly requests them. Summarize repeated "
         "findings by category instead of listing long identifiers.\n\nContext (JSON): " + payload +
+        (("\n\nConversation history (your earlier turns about this run):\n" + conversation)
+         if conversation else "") +
         "\n\nUser question: " + question +
         "\n\nReply STRICT JSON only: "
         '{"answer": "your answer", "sources": ["RULE@feature", "..."]} '
@@ -199,4 +266,13 @@ def answer_question(repo: Repository, run_id: str, question: str,
         s = str(s).strip()
         if s in known and s not in sources:
             sources.append(s)
+
+    # Persist the turn (best-effort — memory must never break chat).
+    if user_key:
+        try:
+            repo.save_chat_turn(run_id, user_key, question, answer, sources)
+        except Exception:
+            logger.warning(
+                "chat memory write failed for run %s (table absent or DB "
+                "error); answer still returned", run_id, exc_info=True)
     return {"question": question, "answer": answer, "sources": sources}

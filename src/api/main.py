@@ -8,6 +8,7 @@ import urllib.request
 import urllib.error
 import wave
 from difflib import SequenceMatcher
+from typing import List
 from pathlib import Path
 from email.message import EmailMessage
 from email.utils import formataddr, parseaddr
@@ -32,6 +33,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.api.schemas import (
+    UnifiedInspectionResponse,
     ImageInspectionResponse,
     VectorProcessingResponse,
     VisionAnalysisResponse,
@@ -66,12 +68,16 @@ from src.vision.vision_pipeline import run_vision_pipeline
 
 from agent.api.router import router as analysis_router
 from agent.core.llm import get_llm
+from agent.orchestrator import run_meyaar_agent
 
 from src.api.vector_pipeline import (
     InvalidVectorFileError,
     VectorProcessingError,
     process_vector_upload,
 )
+
+from src.api.routing import detect_input_type
+from src.api.delivery import run_post_inspection_delivery
 
 
 app = FastAPI(
@@ -921,6 +927,141 @@ async def create_batch_report_pdf(body: BatchReportRequest, user: dict = Depends
     return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": 'attachment; filename="meyaar-selected-analyses.pdf"'})
 
 
+@app.post("/inspect")
+async def inspect_file(
+    file: List[UploadFile] = File(...),
+    layer_type: str | None = Form(None),
+    user: dict = Depends(current_user),
+):
+    if not user["team_id"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Create or join a team before starting an analysis.",
+        )
+
+    async def process_one(item: UploadFile):
+        filename = item.filename or ""
+        input_type = detect_input_type(filename)
+
+        if input_type == "unsupported":
+            return {
+                "filename": filename,
+                "input_type": "unsupported",
+                "status": "skipped",
+                "error": "Unsupported file type.",
+            }
+
+        limit = MAX_VECTOR_SIZE if input_type == "vector" else MAX_IMAGE_SIZE
+        content = await item.read(limit + 1)
+
+        if not content:
+            return {
+                "filename": filename,
+                "input_type": input_type,
+                "status": "failed",
+                "error": "The uploaded file is empty.",
+            }
+
+        if len(content) > limit:
+            return {
+                "filename": filename,
+                "input_type": input_type,
+                "status": "failed",
+                "error": "File size limit exceeded.",
+            }
+
+        try:
+            agent_output = await run_in_threadpool(
+                run_meyaar_agent,
+                filename,
+                content,
+                layer_type,
+            )
+            routed_type = agent_output["input_type"]
+            result = agent_output["result"]
+
+            analysis_id = await run_in_threadpool(
+                save_analysis,
+                user["user_id"],
+                user["team_id"],
+                filename,
+                routed_type,
+                result,
+            )
+
+            result["analysis_id"] = analysis_id
+            delivery = await run_in_threadpool(
+                run_post_inspection_delivery,
+                filename,
+                routed_type,
+                result,
+                user["email"],
+            )
+
+            return {
+                "filename": filename,
+                "input_type": routed_type,
+                "status": "completed",
+                "analysis_id": analysis_id,
+                "result": result,
+                "delivery": delivery,
+            }
+
+        except (
+            InvalidVectorFileError,
+            VectorProcessingError,
+            InvalidImageError,
+            VisionModelNotConfiguredError,
+            VisionModelServiceError,
+        ) as error:
+            return {
+                "filename": filename,
+                "input_type": input_type,
+                "status": "failed",
+                "error": str(error),
+            }
+
+        except Exception as error:
+            return {
+                "filename": filename,
+                "input_type": input_type,
+                "status": "failed",
+                "error": str(error),
+            }
+
+    results = []
+
+    for item in file:
+        results.append(await process_one(item))
+
+    if len(results) == 1:
+        return results[0]
+
+    vector_results = [
+        r["result"]
+        for r in results
+        if r.get("status") == "completed"
+        and r.get("input_type") == "vector"
+        and r.get("result", {}).get("quality_score") is not None
+    ]
+    vector_scores = [float(r["quality_score"]) for r in vector_results]
+
+    return {
+        "mode": "multiple",
+        "total_files": len(results),
+        "processed": sum(r["status"] == "completed" for r in results),
+        "failed": sum(r["status"] == "failed" for r in results),
+        "skipped": sum(r["status"] == "skipped" for r in results),
+        "quality_score": (
+            round(sum(vector_scores) / len(vector_scores), 1)
+            if vector_scores else None
+        ),
+        "vector_files_scored": len(vector_scores),
+        "total_features": sum(int(r.get("total_features", 0)) for r in vector_results),
+        "affected_features": sum(int(r.get("affected_features", 0)) for r in vector_results),
+        "total_findings": sum(int(r.get("total_findings", 0)) for r in vector_results),
+        "results": results,
+    }
 @app.post("/images/inspect", response_model=ImageInspectionResponse)
 async def inspect_uploaded_image(file: UploadFile = File(...)):
     filename = file.filename or ""

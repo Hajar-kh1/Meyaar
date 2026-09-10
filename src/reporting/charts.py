@@ -132,21 +132,31 @@ def create_findings_by_rule_chart(
 
     rows = sorted(
         summary,
-        key=lambda row: row[
-            "findings"
-        ],
+        key=lambda row: row.get(
+            "findings",
+            row.get(
+                "errors_found",
+                0,
+            ),
+        ),
     )
 
     labels = [
         (
-            f"{row['rule_id']} · "
-            f"{row['finding_type']}"
+            f"{row.get('rule_id', 'Unknown')} · "
+            f"{row.get('finding_type', row.get('error_type', 'Unknown Finding'))}"
         )
         for row in rows
     ]
 
     values = [
-        row["findings"]
+        row.get(
+            "findings",
+            row.get(
+                "errors_found",
+                0,
+            ),
+        )
         for row in rows
     ]
 
@@ -270,9 +280,20 @@ def create_quality_dimension_chart(
     for row in summary:
         dimension = (
             RULE_TO_DIMENSION.get(
-                row["rule_id"],
+                row.get(
+                    "rule_id",
+                    "Unknown",
+                ),
                 "Other",
             )
+        )
+
+        findings = row.get(
+            "findings",
+            row.get(
+                "errors_found",
+                0,
+            ),
         )
 
         dimensions[dimension] = (
@@ -280,10 +301,9 @@ def create_quality_dimension_chart(
                 dimension,
                 0,
             )
-            + row["findings"]
+            + findings
         )
 
-    # A one-bar chart adds no value
     if len(dimensions) <= 1:
         return None
 
