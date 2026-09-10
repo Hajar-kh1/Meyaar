@@ -353,17 +353,18 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
   };
 
   return (
-    <div className="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-950/55 p-3" role="dialog" aria-modal="true">
-      <section className="flex h-[min(620px,86vh)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-[#f4f7fb] shadow-2xl">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-          <div className="flex items-center gap-2.5"><span className="flex size-9 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">M</span><div><h2 className="text-sm font-black text-[#071c33]">{pageIsArabic ? "مساعد إدارة الفريق" : "Team assistant"}</h2><p className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="size-1.5 rounded-full bg-emerald-500" />{pageIsArabic ? "متصل الآن" : "Online"}</p></div></div>
-          <button type="button" onClick={onClose} aria-label="Close" className="flex size-9 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-600">×</button>
+    <div className="team-assistant-chat fixed inset-0 z-[6000] flex items-center justify-center bg-[#061d24]/70 p-3 backdrop-blur-[2px]" role="dialog" aria-modal="true">
+      <section className="flex h-[min(720px,92vh)] w-full max-w-[470px] flex-col overflow-hidden rounded-[22px] border border-emerald-100 bg-[#f5faf8] shadow-[0_24px_80px_rgba(2,38,33,.28)]">
+        <header dir="ltr" className="grid grid-cols-[52px_1fr_32px] items-center gap-2 border-b border-emerald-100 bg-white px-4 py-3.5">
+          <img src="/branding/meyaar-version-three-logo.png" alt="Meyaar" className="h-12 w-12 object-contain" />
+          <div dir={pageIsArabic ? "rtl" : "ltr"} className="text-center"><h2 className="text-[15px] font-black text-[#082a35]">{pageIsArabic ? "مساعد إدارة الفريق" : "Team Management Assistant"}</h2><p className="mt-0.5 text-[11px] text-slate-500">{pageIsArabic ? "أنا هنا لمساعدتك في إدارة أعضاء الفريق" : "Here to help you manage your team"}</p></div>
+          <button type="button" onClick={onClose} aria-label="Close" className="flex size-8 items-center justify-center rounded-full text-xl text-slate-500 transition hover:bg-emerald-50 hover:text-[#087363]">×</button>
         </header>
 
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
           {!sentMessage && <AssistantBubble><p className="font-bold text-[#071c33]">{copy.greeting}</p><p className="mt-1 text-xs leading-5 text-slate-500">{copy.example}</p></AssistantBubble>}
           {chatHistory.map((message, index) => message.role === "user"
-            ? <div key={index} className="flex justify-end"><div className="max-w-[82%] whitespace-pre-line rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm leading-6 text-white">{message.text}</div></div>
+            ? <div key={index} className="flex justify-end"><div className="max-w-[82%] whitespace-pre-line rounded-2xl rounded-tr-sm bg-[#dff2eb] px-4 py-3 text-sm font-medium leading-6 text-[#0a4038] shadow-sm">{message.text}</div></div>
             : <AssistantBubble key={index}><p className="whitespace-pre-line text-[#071c33]">{message.text}</p></AssistantBubble>)}
           {busy && !plan && <AssistantBubble><p className="text-slate-500">{copy.preparing}</p></AssistantBubble>}
           {awaitingFollowUp && <AssistantBubble><p className="font-semibold text-[#071c33]">{conversationIsArabic ? ["وش حابة أسوي لك بعد؟", "أنا معك، وش الطلب التالي؟", "تم، هل فيه شيء ثاني أساعدك فيه؟"][sentMessage.length % 3] : ["What else can I help you with?", "I’m ready for your next request.", "Done. Is there anything else you need?"][sentMessage.length % 3]}</p></AssistantBubble>}
@@ -385,7 +386,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
           {error && <div className="ml-11 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         </div>
 
-        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-slate-200 bg-white p-3"><div className="flex items-end gap-2 rounded-xl border border-slate-300 p-2 focus-within:border-blue-500"><textarea rows={1} disabled={Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-9 flex-1 resize-none px-2 py-1.5 text-sm outline-none disabled:bg-white" placeholder={results ? copy.more : (conversationIsArabic ? "اكتبي ردك…" : "Type your reply…")} /><button type="button" onClick={() => void listen()} disabled={Boolean(results)} aria-label={listening ? (isArabic ? "إيقاف التسجيل" : "Stop recording") : (isArabic ? "إدخال صوتي تلقائي اللغة" : "Automatic-language voice input")} className={`flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 ${listening ? "animate-pulse bg-red-100 text-red-700" : "bg-slate-50"}`}>{listening ? "■" : "🎙️"}</button><button type="submit" disabled={busy || Boolean(results) || !instruction.trim()} aria-label="Send" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-base text-white disabled:bg-slate-300">↑</button></div></form>
+        <form onSubmit={(event) => { event.preventDefault(); void review(); }} className="border-t border-emerald-100 bg-white p-3"><div className="flex items-end gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm transition focus-within:border-[#07806c] focus-within:ring-2 focus-within:ring-emerald-100"><textarea rows={1} disabled={Boolean(results)} value={instruction} onChange={(event) => setInstruction(event.target.value)} className="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none disabled:bg-white" placeholder={results ? copy.more : (conversationIsArabic ? "اكتبي رسالتك هنا…" : "Type your message here…")} /><button type="button" onClick={() => void listen()} disabled={Boolean(results)} aria-label={listening ? (isArabic ? "إيقاف التسجيل" : "Stop recording") : (isArabic ? "إدخال صوتي تلقائي اللغة" : "Automatic-language voice input")} className={`flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 ${listening ? "animate-pulse bg-red-100 text-red-700" : "bg-white text-[#087363]"}`}>{listening ? "■" : "🎙️"}</button><button type="submit" disabled={busy || Boolean(results) || !instruction.trim()} aria-label="Send" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#087363] text-base text-white transition hover:bg-[#075f53] disabled:bg-slate-300">➤</button></div></form>
       </section>
     </div>
   );
@@ -393,5 +394,5 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
 
 function AssistantBubble({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   const { direction } = useLanguage();
-  return <div className="flex gap-2.5"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white">M</span><div className={`${wide ? "w-full max-w-[94%]" : "max-w-[88%]"} rounded-2xl ${direction === "rtl" ? "rounded-tr-sm" : "rounded-tl-sm"} bg-white px-4 py-3 text-sm leading-6 text-slate-600 shadow-sm`}>{children}</div></div>;
+  return <div dir="ltr" className="flex items-start gap-2.5"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e1f3ed] text-sm text-[#087363] ring-1 ring-emerald-100">✦</span><div dir={direction} className={`${wide ? "w-full max-w-[94%]" : "max-w-[88%]"} rounded-2xl rounded-tl-sm border border-slate-100 bg-white px-4 py-3 text-sm leading-6 text-slate-600 shadow-sm`}>{children}</div></div>;
 }

@@ -302,6 +302,32 @@ textarea:focus-visible {
   color: #8af0d8;
 }
 
+/* Team assistant keeps Meyaar's green identity in both themes. */
+.team-assistant-chat .bg-blue-600 { background-color: #087363; }
+.team-assistant-chat .bg-blue-50 { background-color: #e8f6f1; }
+.team-assistant-chat .bg-blue-100 { background-color: #d5eee6; }
+.team-assistant-chat .text-blue-600,
+.team-assistant-chat .text-blue-700,
+.team-assistant-chat .text-blue-800 { color: #087363; }
+.team-assistant-chat .border-blue-100,
+.team-assistant-chat .border-blue-200 { border-color: #bfe5d9; }
+.team-assistant-chat .hover\:bg-blue-50:hover { background-color: #e8f6f1; }
+
+.dark .team-assistant-chat > section {
+  border-color: #28535a;
+  background: #0f252d;
+}
+.dark .team-assistant-chat header,
+.dark .team-assistant-chat form { background: #102a33; border-color: #28535a; }
+.dark .team-assistant-chat .bg-white { background-color: #17343d; }
+.dark .team-assistant-chat .bg-\[\#f5faf8\] { background-color: #0f252d; }
+.dark .team-assistant-chat .bg-\[\#dff2eb\] { background-color: #0b554b; }
+.dark .team-assistant-chat .bg-\[\#dff2eb\] { color: #e8fffa; }
+.dark .team-assistant-chat .border-slate-100,
+.dark .team-assistant-chat .border-emerald-100 { border-color: #28535a; }
+.dark .team-assistant-chat .bg-\[\#e1f3ed\] { background-color: #16483f; }
+.dark .team-assistant-chat textarea:disabled { background-color: transparent; }
+
 .dark .meyaar-app-header {
   background-color: rgb(7 28 36 / .96);
   background-image: linear-gradient(90deg, rgb(7 28 36 / .98), rgb(7 28 36 / .72)), url('/branding/meyaar-version-three-hero-dark.png');
