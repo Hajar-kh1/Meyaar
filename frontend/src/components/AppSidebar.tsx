@@ -23,9 +23,9 @@ const items: Array<{ view: AppView; label: string; arabic: string; icon: "home" 
 function SidebarIcon({ name }: { name: "home" | "check" | "reports" | "history" | "settings" | "logout" }) {
   if (name === "home") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 11 7-6 7 6v8H5v-8Z"/><path d="M9 19v-5h6v5"/></svg>;
   if (name === "check") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="m8 12 2.5 2.5L16.5 9"/></svg>;
-  if (name === "reports") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>;
-  if (name === "history") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>;
-  if (name === "settings") return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l-2-.7-.8-1.8.9-1.9-2.2-2.2-1.9.9-1.8-.8-.7-2h-3l-.7 2-1.8.8-1.9-.9L.9 6.1 1.8 8 1 9.8l-2 .7v3l2 .7.8 1.8-.9 1.9 2.2 2.2 1.9-.9 1.8.8.7 2h3l.7-2 1.8-.8 1.9.9 2.2-2.2-.9-1.9.8-1.8 2-.7Z" transform="translate(2 0) scale(.83)"/></svg>;
+  if (name === "reports") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4h16v16H4Z"/><path d="M8 16v-4M12 16V8M16 16v-6"/></svg>;
+  if (name === "history") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h10l3 3h3v12H4V5Z"/><path d="M8 12h8M8 16h5"/></svg>;
+  if (name === "settings") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>;
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9"/></svg>;
 }
 
