@@ -85,6 +85,40 @@ def get_rule_definition(rule_id: str) -> Optional[dict]:
     return rd.model_dump() if rd else None
 
 
+# ── 7. get_analysis_record (the COMPLETE analysis) ──────────────────────────
+def get_analysis_record(repo: Repository, run_id: str) -> dict:
+    """Return the COMPLETE stored analysis for a run: the whole saved analysis
+    payload (every key, unfiltered), the complete record of every feature the
+    run touches (all layer attributes + PostGIS measurements), the raw
+    rule-engine findings with their details text, the stored agent analyses,
+    and an index of every field name present. Use this for ANY question about
+    an analysis — it is not limited to a fixed field list, so newly stored
+    fields are available without a code change."""
+    from agent.retrieval import build_analysis_dataset
+    return build_analysis_dataset(repo, run_id)
+
+
+# ── 8. get_feature_record (ALL attributes of one feature) ───────────────────
+def get_feature_record(repo: Repository, layer_name: str,
+                       feature_id: str) -> Optional[dict]:
+    """Return every stored value for ONE feature: all attribute columns the
+    layer holds plus the computed geometry measurements (length_m, area_m2,
+    vertex_count, centroid, bbox, geometry/coordinates). Returns None when the
+    feature does not exist — never invents a row."""
+    from agent.retrieval import fetch_feature_records
+    return fetch_feature_records(repo, layer_name, [feature_id]).get(feature_id)
+
+
+# ── 9. list_analysis_fields (dynamic field index) ───────────────────────────
+def list_analysis_fields(repo: Repository, run_id: str) -> dict:
+    """Return the index of EVERY field name available for a run, each with an
+    example value and where it was found. Use it to map the user's wording
+    ('street length', 'plot dimensions') onto the project's real field names
+    and to check whether a value exists at all before answering."""
+    from agent.retrieval import build_analysis_dataset
+    return build_analysis_dataset(repo, run_id).get("available_fields", {})
+
+
 def _first_line(doc: Optional[str]) -> str:
     return (doc or "").strip().splitlines()[0] if (doc or "").strip() else ""
 
@@ -97,6 +131,9 @@ TOOL_REGISTRY: dict[str, object] = {
     "query_postgis_readonly": query_postgis_readonly,
     "get_spatial_measurements": get_spatial_measurements,
     "get_rule_definition": get_rule_definition,
+    "get_analysis_record": get_analysis_record,
+    "get_feature_record": get_feature_record,
+    "list_analysis_fields": list_analysis_fields,
 }
 
 
@@ -121,4 +158,13 @@ def tool_descriptions() -> list[dict]:
         {"name": "get_rule_definition",
          "description": _first_line(get_rule_definition.__doc__),
          "args": ["rule_id"]},
+        {"name": "get_analysis_record",
+         "description": _first_line(get_analysis_record.__doc__),
+         "args": ["run_id"]},
+        {"name": "get_feature_record",
+         "description": _first_line(get_feature_record.__doc__),
+         "args": ["layer_name", "feature_id"]},
+        {"name": "list_analysis_fields",
+         "description": _first_line(list_analysis_fields.__doc__),
+         "args": ["run_id"]},
     ]

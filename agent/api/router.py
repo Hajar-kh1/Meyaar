@@ -23,6 +23,7 @@ from agent.core.models import (
 from agent.db.base import Repository
 from agent.graph.builder import build_summary_model, run_analysis
 from agent.map_elements.service import suggest_missing_map_element
+from agent.retrieval import build_analysis_dataset
 from src.api.auth import current_user, database_engine, ensure_app_tables, require_run_access
 from src.api.schemas import MapElementSuggestionRequest, MapElementSuggestionResponse
 
@@ -84,21 +85,32 @@ def get_analysis(run_id: UUID4, repo: Repository = Depends(get_repository), user
         analyses = repo.fetch_analyses(str(run_id))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"analysis fetch failed: {exc}")
-    if not analyses:
-        raise HTTPException(
-            status_code=404,
-            detail="No agent analysis found for this run. "
-                   "Call POST /api/validation/{run_id}/analyze first.")
     results = repo.fetch_results(str(run_id))
+    stored = None
+    if not analyses:
+        # A run with no engine findings is still a completed analysis: the
+        # analyze step persists a zero-error summary. Return that as a valid
+        # empty result instead of a 404 that loops ("run analyze first")
+        # even after analyze already ran.
+        try:
+            stored = repo.fetch_run_summary(str(run_id))
+        except Exception:
+            stored = None
+        if results or not stored:
+            raise HTTPException(
+                status_code=404,
+                detail="No agent analysis found for this run. "
+                       "Call POST /api/validation/{run_id}/analyze first.")
     summary = repo.build_summary(results, analyses)
     summary["priority_actions"] = repo.priority_actions(summary)
     # Attach the persisted executive narrative (written by the summarize node).
-    try:
-        stored = repo.fetch_run_summary(str(run_id))
-        if stored:
-            summary["narrative"] = stored.get("narrative")
-    except Exception:
-        pass   # table may be absent on older DBs — summary still works
+    if stored is None:
+        try:
+            stored = repo.fetch_run_summary(str(run_id))
+        except Exception:
+            stored = None   # table may be absent on older DBs — summary still works
+    if stored and stored.get("narrative"):
+        summary["narrative"] = stored.get("narrative")
     return AnalysisListResponse(
         run_id=str(run_id),
         summary=build_summary_model(str(run_id), summary),
@@ -123,6 +135,33 @@ def get_remediation(run_id: UUID4, repo: Repository = Depends(get_repository), u
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"remediation fetch failed: {exc}")
     return RemediationListResponse(run_id=str(run_id), remediation=records)
+
+
+@router.get("/validation/{run_id}/record",
+            summary="Retrieve the COMPLETE analysis data for a run (every stored field)")
+def get_analysis_data(run_id: UUID4, repo: Repository = Depends(get_repository),
+                      user: dict = Depends(current_user)):
+    """The unfiltered analysis dataset behind the grounded chat.
+
+    Returns the whole stored analysis payload(s) (every JSON key the pipeline
+    persisted), the complete record of every feature the run touches (all
+    layer attributes + PostGIS measurements), the raw rule-engine findings
+    including their details text, and the index of every available field name
+    with an example value. Nothing is whitelisted, so a field added to the
+    pipeline or a layer later is returned with no code change.
+    """
+    with database_engine().begin() as connection:
+        ensure_app_tables(connection)
+        require_run_access(connection, user, str(run_id))
+    dataset = build_analysis_dataset(repo, str(run_id))
+    counts = dataset["counts"]
+    if not any(counts.get(key) for key in ("analyses", "findings",
+                                           "analysis_records")):
+        raise HTTPException(
+            status_code=404,
+            detail="No analysis found for this run. "
+                   "Call POST /api/validation/{run_id}/analyze first.")
+    return {"run_id": str(run_id), **dataset}
 
 
 @router.post("/validation/{run_id}/chat",

@@ -72,6 +72,36 @@ class Repository(ABC):
         intersects, overlap_area_m2}. Inapplicable measurements are None
         (a LineString has no area, a missing feature has no centroid)."""
 
+    # ── reads: the COMPLETE stored analysis for a run ─────────────────────
+    def fetch_analysis_records(self, run_id: str) -> list[dict]:
+        """The complete saved analysis payload(s) for a run.
+
+        Each entry: {analysis_id, user_id, filename, analysis_type, status,
+        compliance_score, total_errors, created_at, result} where ``result``
+        is the WHOLE stored payload object (the JSONB the pipeline saved) —
+        every key, unfiltered. Callers must not reduce it to a fixed field
+        list: a new analysis field must reach the agent without a code change.
+
+        Best-effort by design (same contract as fetch_chat_history): a backend
+        with no saved-analysis store returns [] and the chat reports the data
+        as unavailable instead of inventing values.
+        """
+        return []
+
+    def fetch_feature_records(self, layer_name: str,
+                              feature_ids: list[str]) -> dict[str, dict]:
+        """COMPLETE record per requested feature, keyed by feature_id.
+
+        Unlike ``fetch_feature_context`` (a few geometry fields) this returns
+        every attribute column the layer table holds — discovered at query
+        time, so a column added to the layer shows up automatically — merged
+        with the computed geometry measurements (geometry_type, srid,
+        is_valid, is_empty, length_m, area_m2, vertex_count, centroid, bbox)
+        and the feature's geometry/coordinates. Missing ids are absent (never
+        fabricated); the best-effort default is {}.
+        """
+        return {}
+
     # ── writes (agent tables + whitelisted remediation ops) ───────────────
     @abstractmethod
     def save_analyses(self, analyses: list[ErrorAnalysis]) -> int:

@@ -5,6 +5,14 @@ The chat answers questions about ONE engine run using ONLY:
   - the run summary (counts, most common error, priority actions)
   - the stored agent analyses (explanations, causes, recommendations)
   - the rule registry (rule meaning, heuristic vs deterministic)
+  - the COMPLETE stored analysis data (agent/retrieval.py): the whole saved
+    analysis payload with every key the pipeline persisted, the full record of
+    every feature the run touches (all layer attributes + PostGIS
+    measurements: lengths, areas, distances, coordinates, counts), the raw
+    rule-engine findings with their details text, and a dynamically derived
+    index of every field name present. No field whitelist is involved, so a
+    question about any stored value — including a field added after this code
+    was written — is answered from real data.
   - the remediation audit (what was auto-fixed, what is queued for a human,
     what failed) — so "what did the agent fix?" is answered truthfully.
   - the conversation so far for this (run_id, user_key) — persisted chat
@@ -29,6 +37,7 @@ from typing import Any, Optional
 from agent.core.config import settings
 from agent.core.llm import get_llm
 from agent.db.base import Repository
+from agent.retrieval import build_analysis_dataset, fit_context
 from agent.rules.registry import get_rule
 
 logger = logging.getLogger(__name__)
@@ -72,7 +81,37 @@ SYSTEM_PROMPT = (
     "   asking again or guessing. Stay consistent with your earlier answers — "
     "   never contradict a fact you already stated unless the run context "
     "   clearly supports the correction. Do not repeat whole earlier answers "
-    "   verbatim; reference them briefly and build on them."
+    "   verbatim; reference them briefly and build on them. "
+    # ── complete analysis data (no field whitelist) ───────────────────────
+    "8) The context carries the COMPLETE analysis data, not a sample: "
+    "   'analysis_records' holds the stored analysis payload(s) with EVERY "
+    "   field the system saved (whole JSON objects: insertion, validation, "
+    "   quality metrics, geometry, and any other key the pipeline stored), "
+    "   'feature_data' is the complete stored record of each feature (every "
+    "   attribute the layer holds plus the computed measurements — length, "
+    "   area, distance, overlap, vertex count, bbox, centroid, and the "
+    "   geometry/coordinates), 'findings' are the raw rule-engine rows with "
+    "   their 'details' text (the numbers the engine computed), and "
+    "   'available_fields' indexes every field name present with an example "
+    "   value and where it was found. Answer from these actual stored values; "
+    "   never work from a fixed short list of fields. "
+    "9) Field names may differ from the user's wording. Map by meaning using "
+    "   'available_fields', 'feature_data' and 'analysis_records' (for example "
+    "   a question about a street's length, a building's dimensions, a plot's "
+    "   measurements or a feature's coordinates maps onto the dimension/"
+    "   measurement fields actually stored for that layer and feature). State "
+    "   which stored field you used and give its stored value. "
+    "10) Preserve units exactly as stored (m, m², degrees, %, counts). Never "
+    "   convert, re-round, or drop a unit. "
+    "11) If a requested value is genuinely absent from the context, say "
+    "   plainly that it is not available in this analysis. Never invent, "
+    "   estimate, or borrow a value from another feature or analysis. "
+    "12) For broad requests ('give me all the analysis information', 'the "
+    "   details of this analysis', 'show me everything about the building') "
+    "   return a structured summary of ALL meaningful available fields — "
+    "   grouped by layer/feature and covering dimensions, areas, distances, "
+    "   percentages/scores, counts, coordinates and the analysis metadata — "
+    "   not just the headline counts."
 )
 
 MAX_CHAT_ANALYSES = 100
@@ -84,15 +123,35 @@ def _question_language(question: str) -> str:
 
 
 def build_chat_context(repo: Repository, run_id: str) -> dict:
-    """Assemble the grounded context for one run."""
+    """Assemble the grounded context for one run.
+
+    Includes the COMPLETE analysis dataset (see agent/retrieval.py): the whole
+    stored analysis payload(s), the full record of every feature the run
+    touches, the raw findings and a dynamic index of every available field
+    name — so questions about any stored value (dimensions, areas, distances,
+    percentages, counts, coordinates, or a field added later) are answered
+    from real data instead of a hard-coded field list.
+    """
     analyses = repo.fetch_analyses(run_id)
-    if not analyses:
-        raise ValueError(
-            f"No agent analysis found for run {run_id}. "
-            "Run POST /api/validation/{run_id}/analyze (or the CLI analyze) first.")
     results = repo.fetch_results(run_id)
+    stored = None
+    if not analyses:
+        # A run with no engine findings is still a completed analysis: the
+        # analyze step persisted a zero-error summary. Chat on it must work
+        # (\"is my data clean?\") instead of dead-ending in the \"run analyze
+        # first\" error even though analyze already ran.
+        try:
+            stored = repo.fetch_run_summary(run_id)
+        except Exception:
+            stored = None
+        if results or not stored:
+            raise ValueError(
+                f"No agent analysis found for run {run_id}. "
+                "Run POST /api/validation/{run_id}/analyze (or the CLI analyze) first.")
     summary = repo.build_summary(results, analyses)
     summary["priority_actions"] = repo.priority_actions(summary)
+    if stored and stored.get("narrative"):
+        summary["narrative"] = stored.get("narrative")
     rules: dict[str, dict] = {}
     for a in analyses:
         rd = get_rule(a.rule_id)
@@ -100,13 +159,13 @@ def build_chat_context(repo: Repository, run_id: str) -> dict:
             rules[a.rule_id] = {"type": rd.type,
                                 "requires_human_review": rd.requires_human_review,
                                 "recommendation": rd.recommendation}
-    return {
+    # Complete, unfiltered analysis data — every stored key, every column.
+    dataset = build_analysis_dataset(repo, run_id, results=results,
+                                    analyses=analyses)
+    context = {
         "run_id": run_id,
         "summary": summary,
-        "analyses": [
-            a.model_dump()
-            for a in analyses[:MAX_CHAT_ANALYSES]
-        ],
+        "analyses": dataset["analyses"][:MAX_CHAT_ANALYSES],
         "analyses_in_context": min(
             len(analyses),
             MAX_CHAT_ANALYSES,
@@ -114,7 +173,19 @@ def build_chat_context(repo: Repository, run_id: str) -> dict:
         "total_analyses": len(analyses),
         "rules": rules,
         "remediation": _remediation_context(repo, run_id),
+        # ── complete analysis data (no field whitelist) ───────────────────
+        # analysis_records = whole stored payload(s); feature_data = every
+        # attribute + measurement per feature; findings = raw engine rows with
+        # their details; available_fields = dynamic index of field names.
+        "analysis_records": dataset["analysis_records"],
+        "feature_data": dataset["feature_data"],
+        "findings": dataset["findings"],
+        "available_fields": dataset["available_fields"],
+        "data_counts": dataset["counts"],
     }
+    if dataset.get("truncation"):
+        context["data_truncation"] = dataset["truncation"]
+    return fit_context(context)
 
 
 def _remediation_context(repo: Repository, run_id: str) -> dict:

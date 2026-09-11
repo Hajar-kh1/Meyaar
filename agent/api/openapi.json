@@ -3,7 +3,7 @@
   "info": {
     "title": "Meyaar Error Analysis Agent API",
     "description": "Agentic interpretation layer on top of the PostGIS rule engine.",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "paths": {
     "/api/validation/{run_id}/analyze": {
@@ -190,7 +190,7 @@
           "validation-analysis"
         ],
         "summary": "Ask a grounded question about a run's engine results",
-        "description": "Chat endpoint: answers from the run's stored analyses + summary only.\n\nRequires an LLM key (MEYAAR_LLM_API_KEY) \u2014 analysis endpoints work\nwithout one, chat does not.",
+        "description": "Chat endpoint: answers from the run's stored analyses + summary only.\n\nRequires an LLM key (MEYAAR_LLM_API_KEY) — analysis endpoints work\nwithout one, chat does not.",
         "operationId": "chat_about_run_api_validation__run_id__chat_post",
         "parameters": [
           {
@@ -238,6 +238,53 @@
                 "schema": {
                   "$ref": "#/components/schemas/ChatResponse"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/validation/{run_id}/record": {
+      "get": {
+        "tags": [
+          "validation-analysis"
+        ],
+        "summary": "Retrieve the COMPLETE analysis data for a run (every stored field)",
+        "description": "The unfiltered analysis dataset behind the grounded chat.\n\nReturns the whole stored analysis payload(s) (every JSON key the pipeline\npersisted), the complete record of every feature the run touches (all\nlayer attributes + PostGIS measurements), the raw rule-engine findings\nincluding their details text, and the index of every available field name\nwith an example value. Nothing is whitelisted, so a field added to the\npipeline or a layer later is returned with no code change.",
+        "operationId": "get_analysis_data_api_validation__run_id__record_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid4",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },

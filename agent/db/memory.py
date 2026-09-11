@@ -25,6 +25,9 @@ class InMemoryRepository(Repository):
         self._repaired: set[tuple[str, str]] = set()
         self._run_summaries: dict[str, dict] = {}
         self._chat_turns: dict[tuple[str, str], list[dict]] = {}
+        # Complete saved-analysis payloads (public.saved_analyses.result_payload
+        # equivalent): full JSON objects, every key, seeded by tests.
+        self._analysis_records: list[dict] = []
         self._lock = threading.Lock()
 
     def seed_feature(self, layer_name: str, feature_id: str, context: dict) -> None:
@@ -96,6 +99,74 @@ class InMemoryRepository(Repository):
                     "intersects": ctx.get("intersects"),
                     "overlap_area_m2": ctx.get("overlap_area_m2"),
                 })
+        return out
+
+    # ── reads: the COMPLETE stored analysis for a run ─────────────────────
+    def seed_analysis_record(self, run_id: str, payload: dict,
+                             analysis_id: str = "analysis-1",
+                             **metadata) -> str:
+        """Seed one saved analysis payload (the JSONB ``saved_analyses``
+        stores). Anything in the payload is visible to the agent — arbitrary
+        keys included — so tests can prove new fields need no code change."""
+        record = {
+            "analysis_id": analysis_id,
+            "user_id": metadata.pop("user_id", None),
+            "filename": metadata.pop("filename",
+                                     payload.get("filename", "layer.geojson")),
+            "analysis_type": metadata.pop("analysis_type", "vector"),
+            "status": metadata.pop("status", payload.get("status", "completed")),
+            "compliance_score": metadata.pop("compliance_score",
+                                             payload.get("compliance_score")),
+            "total_errors": metadata.pop("total_errors",
+                                         payload.get("total_errors", 0)),
+            "created_at": metadata.pop("created_at", "2026-01-01T00:00:00"),
+            "run_id": run_id,
+            "result": dict(payload),
+        }
+        record.update(metadata)
+        with self._lock:
+            self._analysis_records = [
+                r for r in self._analysis_records
+                if r.get("analysis_id") != record["analysis_id"]]
+            self._analysis_records.append(record)
+        return record["analysis_id"]
+
+    def fetch_analysis_records(self, run_id: str) -> list[dict]:
+        """Complete stored payload(s) for a run — all keys, unfiltered."""
+        with self._lock:
+            return [dict(r) for r in self._analysis_records
+                    if str(r.get("run_id")) == str(run_id)]
+
+    def fetch_feature_records(self, layer_name: str,
+                              feature_ids: list[str]) -> dict[str, dict]:
+        """Every seeded value for each feature (the in-memory equivalent of
+        'all columns'): whatever the test seeded comes back verbatim, so
+        arbitrary/extra fields flow through the same way real columns do.
+
+        Shaped like PostgresRepository.fetch_feature_records: the corner
+        columns collapse into ``bbox`` and the measurement keys exist (None
+        when not seeded / not applicable) so both repositories look the same
+        to the agent.
+        """
+        layer = self._features.get(layer_name, {})
+        out: dict[str, dict] = {}
+        for fid in feature_ids or []:
+            ctx = layer.get(str(fid))
+            if ctx is None:
+                continue            # never fabricate a missing feature
+            record = dict(ctx)
+            if all(key in record for key in ("x_min", "y_min", "x_max", "y_max")):
+                record.setdefault("bbox", [record["x_min"], record["y_min"],
+                                           record["x_max"], record["y_max"]])
+            for key in ("x_min", "y_min", "x_max", "y_max"):
+                record.pop(key, None)
+            for key in ("geometry_type", "srid", "is_valid", "is_empty",
+                        "length_m", "area_m2", "vertex_count", "centroid",
+                        "bbox"):
+                record.setdefault(key, None)
+            record["feature_id"] = str(fid)
+            record["layer_name"] = layer_name
+            out[str(fid)] = record
         return out
 
     # ── writes: remediation ───────────────────────────────────────────────

@@ -37,12 +37,17 @@ validation_results
 ```
 
 - **load** — `Repository.fetch_results(run_id)` from `public.validation_results`
-- **prepare** — groups errors by `(layer_name, rule_id)`; fetches lightweight
-  context for every referenced feature in one batched query (never full
-  geometries) via `get_related_features`
+- **prepare** — groups errors by `(layer_name, rule_id)`; fetches the COMPLETE
+  stored record for every referenced feature in one batched query per layer —
+  every layer attribute column plus the PostGIS measurements (length_m,
+  area_m2, distance_m, overlap_area_m2, vertex_count, bbox, centroid) and the
+  geometry — so analyses can cite real dimensions/areas/distances. Falls back
+  to the light-weight context on repositories that cannot serve full records
+  (`agent/retrieval.py` holds the same retrieval used by the chat).
 - **analyze** — one call per group (LLM when configured, deterministic
-  template otherwise — same JSON schema, both paths). The LLM may add an
-  advisory `remediation_intent`; it never decides execution.
+  template otherwise — same JSON schema, both paths). Both paths cite the
+  stored values with units; the LLM may add an advisory
+  `remediation_intent`; it never decides execution.
 - **validate** — enforces invariants: heuristic rules (RD001/RD002) can never
   be anything but `candidate` + `human_review_required=true`; severities are
   copied from the engine untouched; malformed LLM rows are repaired
@@ -108,6 +113,14 @@ All tools are plain typed callables against the injected `Repository`
    plus distance/intersection/overlap against another feature
 6. `get_rule_definition(rule_id)` — from `rules/registry.json` (incl.
    remediation policy fields)
+7. `get_analysis_record(run_id)` — the COMPLETE analysis: whole saved payload
+   (every key), full record of every feature it touches, raw findings, and the
+   field index (see `docs/ANALYSIS_RETRIEVAL.md`)
+8. `get_feature_record(layer_name, feature_id)` — every attribute column of one
+   feature + PostGIS measurements + geometry/coordinates
+9. `list_analysis_fields(run_id)` — index of every field name available for the
+   run (example value + where it was found), used to map a question's wording
+   onto the project's real field names
 
 ## Package layout
 
@@ -122,6 +135,9 @@ agent/
 ├── api/         FastAPI router + standalone app + openapi.json contract
 ├── chat.py      grounded chat service (text + sources + conversation
 │                memory — per-user turn history replayed into the prompt)
+├── retrieval.py COMPLETE analysis retrieval (whole saved payload + every
+│                feature attribute/measurement + dynamic field index) used by
+│                the chat, the tools and GET /validation/{run_id}/record
 ├── orchestrator.py  deterministic upload router (vector vs image) that
 │                    forwards one file to the existing teammate pipelines —
 │                    no LLM in the routing decision (see module docstring)
