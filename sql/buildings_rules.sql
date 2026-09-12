@@ -121,6 +121,11 @@ WITH overlap_pairs AS (
       AND ST_SRID(a.geometry) = 4326
       AND ST_SRID(b.geometry) = 4326
 
+      AND ST_XMin(a.geometry) >= -180 AND ST_XMax(a.geometry) <= 180
+      AND ST_YMin(a.geometry) >= -90 AND ST_YMax(a.geometry) <= 90
+      AND ST_XMin(b.geometry) >= -180 AND ST_XMax(b.geometry) <= 180
+      AND ST_YMin(b.geometry) >= -90 AND ST_YMax(b.geometry) <= 90
+
       AND NOT ST_Touches(
             a.geometry,
             b.geometry

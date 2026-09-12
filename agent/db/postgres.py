@@ -214,6 +214,116 @@ class PostgresRepository(Repository):
             out[str(d.pop("feature_id"))] = d
         return out
 
+    # ── reads: the COMPLETE stored analysis for a run ─────────────────────
+    def fetch_analysis_records(self, run_id: str) -> list[dict]:
+        """The WHOLE saved analysis payload(s) for a run.
+
+        Read public.saved_analyses.result_payload (JSONB) for the
+        analysis whose stored run_id matches, and return the complete object
+        under ``result`` — every key the pipeline saved, nothing extracted.
+        Best-effort: an older DB without the table (or a payload that is not
+        JSON) yields [] instead of breaking chat.
+        """
+        sql = """
+        SELECT analysis_id::text AS analysis_id,
+               user_id::text    AS user_id,
+               filename, analysis_type, status,
+               compliance_score, total_errors,
+               created_at::text AS created_at,
+               result_payload
+        FROM public.saved_analyses
+        WHERE result_payload->>'run_id' = :run_id
+        ORDER BY created_at ASC
+        """
+        try:
+            with self.readonly_engine.connect() as conn:
+                rows = conn.execute(text(sql), {"run_id": run_id}).mappings().all()
+        except Exception:
+            return []      # saved_analyses absent -> data reported unavailable
+        out = []
+        for r in rows:
+            d = dict(r)
+            payload = d.pop("result_payload", None)
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except (TypeError, ValueError):
+                    payload = {"unparsed_payload": payload}
+            d["result"] = payload if isinstance(payload, dict) else {"payload": payload}
+            out.append(d)
+        return out
+
+    def fetch_feature_records(self, layer_name: str,
+                              feature_ids: list[str]) -> dict[str, dict]:
+        """COMPLETE record per feature: every layer column + measurements.
+
+        ``to_jsonb(t) - 'geometry'`` carries ALL attribute columns the table
+        has — discovered at query time, so a newly added column is available
+        to the agent with no code change — while the explicit columns add the
+        computed geometry measurements (length/area in metres and m²,
+        vertex count, validity, centroid, bbox) and the geometry as GeoJSON
+        coordinates. Missing ids are absent; a failed query yields {}.
+        """
+        self._assert_layer_name(layer_name)
+        ids = [str(fid) for fid in (feature_ids or []) if fid is not None]
+        if not ids:
+            return {}
+        id_col = self._id_column(layer_name)
+        binds = ", ".join(f":id_{i}" for i in range(len(ids)))
+        sql = f"""
+            SELECT t.{id_col}::text AS feature_id,
+                   to_jsonb(t) - 'geometry'   AS attributes,
+                   GeometryType(t.geometry)   AS geometry_type,
+                   ST_SRID(t.geometry)        AS srid,
+                   ST_IsValid(t.geometry)     AS is_valid,
+                   ST_IsEmpty(t.geometry)     AS is_empty,
+                   ST_NPoints(t.geometry)     AS vertex_count,
+                   ST_AsText(ST_Centroid(t.geometry)) AS centroid,
+                   ST_XMin(t.geometry) AS x_min, ST_YMin(t.geometry) AS y_min,
+                   ST_XMax(t.geometry) AS x_max, ST_YMax(t.geometry) AS y_max,
+                   CASE WHEN ST_SRID(t.geometry) = 4326
+                        THEN ST_Length(t.geometry::geography) END AS length_m,
+                   CASE WHEN ST_SRID(t.geometry) = 4326
+                        THEN ST_Area(t.geometry::geography) END   AS area_m2,
+                   ST_AsGeoJSON(t.geometry, 6) AS geometry_geojson
+            FROM {layer_name} t
+            WHERE t.{id_col}::text IN ({binds})
+        """
+        params = {f"id_{i}": fid for i, fid in enumerate(ids)}
+        try:
+            with self.readonly_engine.connect() as conn:
+                rows = conn.execute(text(sql), params).mappings().all()
+        except Exception:
+            return {}
+        out: dict[str, dict] = {}
+        for r in rows:
+            d = dict(r)
+            fid = str(d.pop("feature_id"))
+            attributes = d.pop("attributes", None) or {}
+            if isinstance(attributes, str):
+                try:
+                    attributes = json.loads(attributes)
+                except (TypeError, ValueError):
+                    attributes = {"raw_attributes": attributes}
+            geojson = d.pop("geometry_geojson", None)
+            record = dict(attributes)
+            record.update(d)
+            bbox = None
+            if record.get("x_min") is not None:
+                bbox = [record["x_min"], record["y_min"],
+                        record["x_max"], record["y_max"]]
+            for key in ("x_min", "y_min", "x_max", "y_max"):
+                record.pop(key, None)
+            record["bbox"] = bbox
+            if geojson is not None:
+                try:
+                    record["geometry"] = json.loads(geojson)
+                except (TypeError, ValueError):
+                    record["geometry"] = geojson
+            record["feature_id"] = fid
+            out[fid] = record
+        return out
+
     def query_readonly(self, sql: str, params: Optional[dict] = None) -> list[dict]:
         from agent.tools.sql_guard import assert_readonly_sql
         assert_readonly_sql(sql)          # static guard (defense in depth)

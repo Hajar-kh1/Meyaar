@@ -7,7 +7,7 @@ Four layers of testing, from zero-dependency to full live system.
 ```bash
 cd ~/Desktop/tuwiq-capstone/Meyaar
 MEYAAR_ALLOW_LLM=false uv run pytest agent/tests -q
-# expect: 129 passed
+# expect: 160 passed
 ```
 
 Runs against an in-memory repository + stub LLMs. Covers:
@@ -16,11 +16,12 @@ Runs against an in-memory repository + stub LLMs. Covers:
 |---|---|
 | test_rules.py | registry semantics for ALL 13 engine rules (severity, deterministic vs heuristic, human-review) |
 | test_tools.py | SQL guard accepts SELECT-only, rejects INSERT/UPDATE/DELETE/DROP/… ; tools return None/{}/[] instead of inventing |
-| test_analysis.py | full-run analysis; RD001/RD002 stay candidate; missing context -> insufficient_context; DB failure logged not fatal; malformed LLM JSON -> template fallback; LLM inventing result_id -> dropped; LLM cannot downgrade a heuristic to confirmed; summary counts; persisted executive narrative (template + LLM + clean-run) |
+| test_analysis.py | full-run analysis; RD001/RD002 stay candidate; missing context -> insufficient_context; DB failure logged not fatal; malformed LLM JSON -> template fallback; LLM inventing result_id -> dropped; LLM cannot downgrade a heuristic to confirmed; summary counts; persisted executive narrative (template + LLM + clean-run). Plus the generation path over COMPLETE feature records: the group prompt carries every layer attribute + measurement (not a trimmed context) and stays scoped to its layer; the deterministic template cites the stored values with units and skips free-text labels; the LLM's answer is kept when it cites those values; a repository without complete records falls back to the light context; a failed context read is logged into the run's errors and the run still completes |
 | test_measurements.py | get_spatial_measurements shape (length_m/area_m2/vertex_count/centroid/bbox, relationship block), N/A = None, missing feature = None; registry remediation policy fields for all rules (auto-fix only BLD003/RD004) |
 | test_remediation.py | the 9 trainer scenarios: auto-fix applied, RD001/RD002 human review, missing geometry never invented, LLM invalid action rejected, LLM heuristic auto-fix claim overridden, SQL failure recorded + others continue, LLM-disabled determinism, clean run |
 | test_chat.py | grounded answers, source filtering (fake ids dropped), requires LLM; chat context includes the remediation audit (counts + items) and still works when the audit table is missing; conversation memory: turns persisted per (user, run), replayed into the next prompt, trimmed to the recent window, best-effort when the memory table is missing, failed answers not persisted |
 | test_orchestrator.py | deterministic upload routing: vector/image by extension (case-insensitive), image magic bytes beat mislabelled extensions, TIFF both endiannesses, JSON-text → vector; delegation to the vector/vision pipelines (stubbed) with args forwarded, inspect-then-vision order, unsupported raises, pipeline errors propagate |
+| test_analysis_retrieval.py | COMPLETE analysis retrieval (docs/ANALYSIS_RETRIEVAL.md): the whole saved payload reaches the context/prompt with every key (nothing whitelisted, incl. a field added after this code), every feature attribute + measurement is retrieved, questions about street length/width, building length+width, plot dimensions, several properties at once, coordinates/counts and broad "all the analysis information" / "everything about the building" are answered from the stored values, a missing value is reported as unavailable (never invented), a clean run's payload-referenced features are still measured, retrieval stays isolated per run, the saved-analysis store missing degrades gracefully, and GET /validation/{run_id}/record returns the complete dataset |
 | test_api.py | POST analyze, GET analysis (404 before analyze), GET remediation, malformed UUID 422, narrative in analysis summary, chat endpoint persists conversation memory scoped to the authenticated user |
 
 Run one file: `... -m pytest agent/tests/test_analysis.py -q`
@@ -105,6 +106,15 @@ curl http://127.0.0.1:8000/api/validation/<run_id>/remediation
 # {run_id, remediation[{action: auto_fix|human_review|no_action,
 #    status: applied|failed|pending_review|none, reason, recommended_action,
 #    before_state, after_state, ...}]}  -> the review queue / audit
+
+curl http://127.0.0.1:8000/api/validation/<run_id>/record
+# the COMPLETE analysis data behind the grounded chat: {run_id,
+#  analysis_records[{analysis_id, filename, ...,
+#    result: <the whole stored result_payload, every key>}],
+#  feature_data{<feature_id>: {every layer attribute + length_m, area_m2,
+#    vertex_count, centroid, bbox, geometry}}, findings[], analyses[],
+#  available_fields{<field name>: {example, type, found_in}}, counts}
+#  (docs/ANALYSIS_RETRIEVAL.md)
 ```
 
 OpenAPI docs: http://127.0.0.1:8000/docs

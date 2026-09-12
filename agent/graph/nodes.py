@@ -19,6 +19,7 @@ from agent.core.models import ErrorAnalysis, ValidationResult
 from agent.db.base import Repository
 from agent.db.postgres import PostgresRepository
 from agent.graph.state import AgentState, PreparedGroup
+from agent.retrieval import compact_record
 from agent.rules.registry import get_rule
 from agent.tools import get_rule_definition
 
@@ -98,6 +99,31 @@ def _related_for(g: PreparedGroup, r: ValidationResult) -> list[str]:
     return _parse_related_ids(r.details, r.feature_id, set(g.contexts))
 
 
+def _complete_contexts(repo: Repository, layer_name: str,
+                       feature_ids: list[str]) -> dict[str, dict]:
+    """Context for the requested features, as COMPLETE as the repository can
+    give: every attribute column the layer stores plus the PostGIS
+    measurements (length_m, area_m2, vertex_count, centroid, bbox), so the
+    generated analyses can cite real dimensions, areas and distances instead
+    of geometry type/SRID/bbox alone.
+
+    Falls back to the light-weight ``fetch_related_features`` context on
+    repositories that cannot serve complete records, and raises only when the
+    underlying read fails (the caller records that and keeps going).
+    """
+    ids = [fid for fid in feature_ids if fid is not None]
+    if not ids:
+        return {}
+    fn = getattr(repo, "fetch_feature_records", None)
+    if callable(fn):
+        records = fn(layer_name, ids) or {}
+        if records:
+            # Keep every field but bound each record so 25 records with complex
+            # geometries cannot blow up the per-group prompt.
+            return {fid: compact_record(rec) for fid, rec in records.items()}
+    return repo.fetch_related_features(layer_name, ids) or {}
+
+
 def prepare_groups(state: AgentState, config: Optional[RunnableConfig] = None) -> dict:
     repo = get_repository(config)
     groups: dict[tuple, PreparedGroup] = {}
@@ -108,7 +134,9 @@ def prepare_groups(state: AgentState, config: Optional[RunnableConfig] = None) -
                                         rule=get_rule_definition(r.rule_id))
         groups[key].items.append(r)
 
-    # Bulk context retrieval once per (layer) for all referenced feature ids.
+    # Bulk context retrieval once per (layer) for all referenced feature ids —
+    # complete records (all attributes + measurements), not a trimmed context.
+    errors = list(state.errors)
     for g in groups.values():
         layer = g.layer_name
         ids: list[str] = []
@@ -117,17 +145,17 @@ def prepare_groups(state: AgentState, config: Optional[RunnableConfig] = None) -
                 ids.append(r.feature_id)
             ids.extend(_parse_related_ids(r.details, r.feature_id))
         try:
-            g.contexts = repo.fetch_related_features(layer, list(dict.fromkeys(ids)))
+            g.contexts = _complete_contexts(repo, layer, list(dict.fromkeys(ids)))
         except Exception as exc:  # tool failure must not kill the run
             logger.exception("context retrieval failed for %s/%s", layer, g.rule_id)
             g.contexts = {}
-            state.errors.append(f"context.{g.rule_id}: {exc}")
+            errors.append(f"context.{g.rule_id}: {exc}")
 
     ordered = [groups[k] for k in
                sorted(groups, key=lambda k: (k[0], k[1]))]
     trace = state.trace + [f"[prepare] {len(ordered)} group(s), "
                            f"{sum(len(g.items) for g in ordered)} error(s)"]
-    return {"groups": ordered, "trace": trace}
+    return {"groups": ordered, "trace": trace, "errors": errors}
 
 
 # ── template analysis (deterministic fallback / repair) ─────────────────────
@@ -138,6 +166,36 @@ def _base_status(rule_id: str, rule: Optional[dict]) -> tuple[str, bool]:
     if rule.get("type") == "heuristic":
         return "candidate", True
     return "confirmed", bool(rule.get("requires_human_review"))
+
+
+MAX_TEMPLATE_FACTS = 12
+
+
+def _measurement_clause(context: Optional[dict]) -> str:
+    """Deterministic, grounded echo of the facts stored for one feature.
+
+    Field-agnostic: whatever numbers the complete record carries — computed
+    measurements (length_m, area_m2, vertex_count, ...) as well as ordinary
+    numeric attributes (lanes, floors, ...) — are echoed verbatim, plus the
+    bounding box. Absent values contribute nothing and nothing is invented;
+    free-text attributes (names, labels) are skipped because they are not
+    measurements.
+    """
+    if not context:
+        return ""
+    facts: list[str] = []
+    for key, value in context.items():
+        if key in {"feature_id", "layer_name"} or value is None:
+            continue
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            facts.append(f"{key}={value}")
+        elif key == "bbox" and isinstance(value, list):
+            facts.append(f"bbox={value}")
+        if len(facts) >= MAX_TEMPLATE_FACTS:
+            break
+    return ("Stored feature measurements: " + ", ".join(facts) + ".") if facts else ""
 
 
 def template_analysis(r: ValidationResult, rule: Optional[dict],
@@ -165,6 +223,9 @@ def template_analysis(r: ValidationResult, rule: Optional[dict],
         explanation_parts.append(
             f"Feature context: {context.get('geometry_type', 'unknown geometry')}, "
             f"SRID {context.get('srid', '?')}, centroid {context.get('centroid', 'n/a')}.")
+        measured = _measurement_clause(context)
+        if measured:
+            explanation_parts.append(measured)
     if status == "candidate":
         explanation_parts.append(
             "Heuristic topology candidate (5 m tolerance) — requires human review "
@@ -274,6 +335,16 @@ def _group_prompt(g: PreparedGroup) -> str:
         "explain, and recommend. Never invent feature ids, locations, distances, "
         "or areas. Use ONLY the details and context below. If a feature has no "
         "context and details are empty, set status insufficient_context.\n"
+        "feature_context and related_features_context are the COMPLETE stored "
+        "record of each feature: every attribute the layer holds (names, "
+        "classification, lanes, floors, ...) plus the PostGIS measurements "
+        "(length_m, area_m2, distance_m, overlap_area_m2, vertex_count, bbox, "
+        "centroid) and the geometry/coordinates. When a stored value is "
+        "relevant to why the error happened, cite it exactly as stored — with "
+        "its unit (m, m², degrees, %, counts) — and name the field you used "
+        "(e.g. 'length_m = 125.4 m'). Never convert, round, or guess a value "
+        "that is not in the record: if a dimension or measurement is absent, "
+        "say it is not available in this analysis instead of estimating it.\n"
         f"Rule definition: {rule_txt}\n"
         f"Layer: {g.layer_name}\n"
         "Errors (JSON): " + json.dumps(items, ensure_ascii=False) +

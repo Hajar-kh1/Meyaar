@@ -63,11 +63,14 @@ def test_tool_registry_exposes_required_tools():
 
     assert set(TOOL_REGISTRY) == {
         "get_validation_results", "get_feature_context", "get_related_features",
-        "query_postgis_readonly", "get_spatial_measurements", "get_rule_definition"}
+        "query_postgis_readonly", "get_spatial_measurements", "get_rule_definition",
+        "get_analysis_record", "get_feature_record", "list_analysis_fields"}
     names = [d["name"] for d in tool_descriptions()]
     assert names == ["get_validation_results", "get_feature_context",
                      "get_related_features", "query_postgis_readonly",
-                     "get_spatial_measurements", "get_rule_definition"]
+                     "get_spatial_measurements", "get_rule_definition",
+                     "get_analysis_record", "get_feature_record",
+                     "list_analysis_fields"]
 
 
 def test_query_postgis_readonly_alias_shares_guard():

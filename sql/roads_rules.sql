@@ -96,7 +96,11 @@ CROSS JOIN LATERAL
     ) AS d
 WHERE rd.geometry IS NOT NULL
   AND NOT ST_IsEmpty(rd.geometry)
-  AND ST_SRID(rd.geometry) = 4326;
+  AND ST_SRID(rd.geometry) = 4326
+  AND ST_XMin(rd.geometry) >= -180
+  AND ST_XMax(rd.geometry) <= 180
+  AND ST_YMin(rd.geometry) >= -90
+  AND ST_YMax(rd.geometry) <= 90;
 
 CREATE INDEX idx_road_parts_metric_geom
     ON _road_parts_metric

@@ -275,3 +275,143 @@ def test_multiple_errors_one_run_grouped(repo):
     # group = distinct (layer, rule); sample_run has 14 distinct rules
     assert len(analyze_traces) == 14
     assert all("template" in t for t in analyze_traces)
+
+
+# ── complete feature records feeding the generation path ────────────────────
+RICH_BUILDING = {
+    "feature_id": "BLD_102", "layer_name": "buildings",
+    "geometry_type": "Polygon", "srid": 4326, "is_valid": True, "is_empty": False,
+    "area_m2": 248.7, "building_length": 18.2, "building_width": 12.0,
+    "building_area": 248.7, "building_coverage": 50.5, "floors": 2,
+    "name": "Villa 12", "vertex_count": 32,
+    "centroid": "POINT(46.701 24.601)",
+    "x_min": 46.700, "y_min": 24.600, "x_max": 46.702, "y_max": 24.602,
+}
+
+
+def _rich_repo():
+    """Repo whose flagged building carries dimensions/attributes/measurements."""
+    repo = build_memory_repo()
+    repo.seed_feature("buildings", "BLD_102", dict(RICH_BUILDING))
+    return repo
+
+
+class _EmptyArrayLLM:
+    """Valid JSON that analyses nothing -> per-item template fallback."""
+
+    def __init__(self):
+        self.prompts: list[str] = []
+
+    def invoke(self, prompt):
+        self.prompts.append(prompt)
+        return type("R", (), {"content": json.dumps([])})()
+
+
+def test_group_prompt_receives_complete_feature_records():
+    repo = _rich_repo()
+    llm = _EmptyArrayLLM()
+    run_analysis(RUN_ID, repository=repo, llm=llm)
+
+    buildings_prompt = next(p for p in llm.prompts if '"layer":"buildings"' in p
+                            or "Layer: buildings" in p)
+    # every stored attribute/measurement is in the prompt, not a trimmed set
+    for token in ("area_m2", "building_length", "building_width",
+                  "building_coverage", "floors", "vertex_count", "bbox",
+                  "248.7", "18.2", "50.5", "Villa 12"):
+        assert token in buildings_prompt, token
+    # the group prompt stays scoped to its own layer
+    assert "RD_101" not in buildings_prompt
+
+
+def test_template_explanation_cites_stored_measurements():
+    out = run_analysis(RUN_ID, repository=_rich_repo())   # deterministic path
+    bld001 = next(a for a in out["analyses"] if a["rule_id"] == "BLD001")
+    explanation = bld001["explanation"]
+    assert "Stored feature measurements:" in explanation
+    assert "area_m2=248.7" in explanation
+    assert "building_length=18.2" in explanation
+    assert "building_coverage=50.5" in explanation
+    assert "floors=2" in explanation
+    assert "bbox=[46.7, 24.6, 46.702, 24.602]" in explanation
+    assert "srid=4326" in explanation
+    # free-text attributes are NOT echoed as measurements (no noise, no claims)
+    assert "Villa 12" not in explanation
+
+
+def test_llm_generation_uses_the_stored_measurements():
+    repo = _rich_repo()
+    prompts: list[str] = []
+
+    class MeasuringLLM:
+        def invoke(self, prompt):
+            prompts.append(prompt)
+            return type("R", (), {"content": json.dumps([{
+                "result_id": 1, "status": "confirmed",
+                "explanation": "BLD_102 overlaps BLD_157; the stored record gives "
+                               "building_length = 18.2 m, building_width = 12.0 m "
+                               "and area_m2 = 248.7 m².",
+                "cause": "positive-area intersection",
+                "recommendation": "snap boundaries so they only touch",
+                "human_review_required": False,
+                "related_features": ["BLD_157"]}])})()
+
+    out = run_analysis(RUN_ID, repository=repo, llm=MeasuringLLM())
+    a = next(x for x in out["analyses"] if x["result_id"] == 1)
+    assert "building_length = 18.2 m" in a["explanation"]   # the LLM's answer, kept
+    assert "248.7" in a["explanation"]
+    # the values it cited were genuinely in the prompt it was given
+    assert any("building_length" in p and "248.7" in p for p in prompts)
+
+
+def test_generation_falls_back_when_complete_records_unavailable():
+    """Older/custom repositories without complete records still work: the
+    light-weight context is used and the run stays error-free."""
+    inner = build_memory_repo()
+
+    class LightRepo:
+        fetch_feature_records = None            # not available on this repo
+
+        def __init__(self, wrapped):
+            self._wrapped = wrapped
+
+        def __getattr__(self, name):
+            return getattr(self._wrapped, name)
+
+    out = run_analysis(RUN_ID, repository=LightRepo(inner))
+    assert len(out["analyses"]) == 14
+    assert out["errors"] == []
+    bld001 = next(a for a in out["analyses"] if a["rule_id"] == "BLD001")
+    assert bld001["status"] == "confirmed"      # grounded via details + context
+
+
+def test_generation_prompt_stays_bounded_for_complex_geometry():
+    """A feature with a very complex geometry must not blow the group prompt:
+    records are bounded, but every field (and its value) survives."""
+    repo = build_memory_repo()
+    repo.seed_feature("buildings", "BLD_102", {
+        **RICH_BUILDING,
+        "geometry": {"type": "Polygon",
+                     "coordinates": [[[46.60 + i * 0.00001, 24.60] for i in range(6000)]]},
+    })
+    llm = _EmptyArrayLLM()
+    run_analysis(RUN_ID, repository=repo, llm=llm)
+    buildings_prompt = next(p for p in llm.prompts if "Layer: buildings" in p)
+    assert len(buildings_prompt) < 40_000        # bounded, not 6000 coordinates
+    assert "_omitted_items" in buildings_prompt  # the trim is marked, not silent
+    assert "building_length" in buildings_prompt  # fields survive
+    assert "area_m2=248.7" in buildings_prompt or '"area_m2": 248.7' in buildings_prompt
+
+
+def test_generation_survives_context_read_failure():
+    repo = build_memory_repo()
+
+    def boom(layer_name, feature_ids):
+        raise RuntimeError('relation "public.buildings" does not exist')
+
+    repo.fetch_feature_records = boom
+    out = run_analysis(RUN_ID, repository=repo)
+    assert len(out["analyses"]) == 14           # a failed read is logged, not fatal
+    assert any(e.startswith("context.") for e in out["errors"])
+    bld001 = next(a for a in out["analyses"] if a["rule_id"] == "BLD001")
+    assert bld001["status"] == "confirmed"      # engine details still grounded it
+    assert "Stored feature measurements:" not in bld001["explanation"]
