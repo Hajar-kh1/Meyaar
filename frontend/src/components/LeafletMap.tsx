@@ -287,13 +287,16 @@ export default function LeafletMap({
               ),
             );
             return {
-              fill: true,
+              // Keep error geometry as a crisp outline. Filling polygons made
+              // the whole viewport look red when the map zoomed into one.
+              fill: false,
               color: isSelected ? "#dc2626" : color,
-              fillColor: color,
-              fillOpacity: isSelected ? 0.28 : 0.14,
-              weight: isSelected ? 5 : 3,
+              fillOpacity: 0,
+              weight: isSelected ? 4 : 2.5,
               opacity: isSelected ? 1 : 0.88,
               dashArray: isSelected ? undefined : "6 5",
+              lineCap: "round",
+              lineJoin: "round",
             };
           }}
           onEachFeature={(feature, layer) => {
