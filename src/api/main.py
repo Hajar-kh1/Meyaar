@@ -52,6 +52,7 @@ from src.api.schemas import (
     TeamRoleUpdate,
     ExistingTeamMemberAddRequest,
     PasswordChangeRequest,
+    ForgotPasswordRequest,
     NewUserInterpretRequest,
     NewUserCreateRequest,
 )
@@ -139,6 +140,36 @@ def login_user(body: LoginRequest):
             raise HTTPException(status_code=401, detail="Incorrect email or password.")
         token = create_session(connection, str(row["user_id"]))
     return {"token": token, "user": {"user_id": str(row["user_id"]), "name": row["name"], "email": row["email"], "username": row["username"], "must_change_password": row["must_change_password"], "role": row["role"], "team_id": str(row["team_id"]) if row["team_id"] else None, "team_name": row["team_name"], "invite_code": row["invite_code"] if row["role"] in ("manager", "leader") else None}}
+
+
+@app.post("/auth/forgot-password")
+def forgot_password(body: ForgotPasswordRequest):
+    identifier = body.identifier.strip().lower()
+    generic_message = "If a matching employee account has a personal email, a temporary password has been sent."
+    with database_engine().begin() as connection:
+        ensure_app_tables(connection)
+        user = connection.execute(text("""
+            SELECT user_id, name, username, COALESCE(personal_email, email) AS recovery_email
+            FROM public.app_users
+            WHERE LOWER(COALESCE(email, '')) = :identifier
+               OR LOWER(COALESCE(username, '')) = :identifier
+               OR LOWER(COALESCE(personal_email, '')) = :identifier
+            LIMIT 1
+        """), {"identifier": identifier}).mappings().first()
+        if not user or not user["recovery_email"]:
+            return {"message": generic_message}
+        temporary_password = secrets.token_urlsafe(12)
+        try:
+            _send_password_reset(str(user["recovery_email"]), str(user["name"]), str(user["username"] or ""), temporary_password)
+        except (OSError, smtplib.SMTPException, RuntimeError) as error:
+            raise HTTPException(status_code=503, detail=f"Password email could not be sent: {error}") from error
+        connection.execute(text("""
+            UPDATE public.app_users
+            SET password_hash = :password_hash, must_change_password = TRUE
+            WHERE user_id = :user_id
+        """), {"password_hash": hash_password(temporary_password), "user_id": str(user["user_id"])})
+        connection.execute(text("DELETE FROM public.auth_sessions WHERE user_id = :user_id"), {"user_id": str(user["user_id"])})
+    return {"message": generic_message}
 
 
 @app.get("/auth/me", response_model=UserResponse)
@@ -746,6 +777,37 @@ def _send_new_user_welcome(recipient: str, employee_name: str, team_name: str, a
         f"مرحبًا {employee_name}! تم إنشاء حسابك في فريق {team_name}.\n"
         f"بريد الدخول: {account_email}\nاسم المستخدم: {username}\nكلمة المرور المؤقتة: {temporary_password}\n"
         "سيُطلب منك تغيير كلمة المرور عند أول تسجيل دخول."
+    )
+    server = smtplib.SMTP_SSL(host, port, timeout=20) if port == 465 else smtplib.SMTP(host, port, timeout=20)
+    try:
+        if port != 465 and os.getenv("MEYAAR_SMTP_TLS", "true").lower() == "true":
+            server.starttls()
+        if smtp_username and smtp_password:
+            server.login(smtp_username, smtp_password)
+        server.send_message(message)
+    finally:
+        server.quit()
+
+
+def _send_password_reset(recipient: str, employee_name: str, username: str, temporary_password: str) -> None:
+    host = os.getenv("MEYAAR_SMTP_HOST")
+    smtp_username = os.getenv("MEYAAR_SMTP_USER")
+    smtp_password = os.getenv("MEYAAR_SMTP_PASSWORD")
+    sender = os.getenv("MEYAAR_SMTP_FROM") or smtp_username
+    if not host or not sender:
+        raise RuntimeError("Email service is not configured. Add MEYAAR_SMTP_HOST and MEYAAR_SMTP_FROM to the backend environment.")
+    port = int(os.getenv("MEYAAR_SMTP_PORT", "587"))
+    message = EmailMessage()
+    message["Subject"] = "Your temporary MEYAAR password"
+    message["From"] = formataddr(("MEYAAR", sender))
+    message["To"] = recipient
+    message.set_content(
+        f"Hello {employee_name},\n\nA password reset was requested for your MEYAAR account.\n"
+        f"Username: {username}\nTemporary password: {temporary_password}\n\n"
+        "Sign in with this password. You will be asked to create a new private password immediately.\n\n"
+        f"مرحبًا {employee_name}،\n\nتم طلب إعادة تعيين كلمة مرور حسابك في معيار.\n"
+        f"اسم المستخدم: {username}\nكلمة المرور المؤقتة: {temporary_password}\n\n"
+        "سجّل الدخول بهذه الكلمة، وسيُطلب منك تعيين كلمة مرور خاصة جديدة مباشرة."
     )
     server = smtplib.SMTP_SSL(host, port, timeout=20) if port == 465 else smtplib.SMTP(host, port, timeout=20)
     try:

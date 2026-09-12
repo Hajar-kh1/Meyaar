@@ -152,6 +152,10 @@ export async function login(email: string, password: string): Promise<AuthRespon
   const data = await parseResponse<AuthResponse>(response); setAuthToken(data.token); return data;
 }
 
+export async function forgotPassword(identifier: string): Promise<{ message: string }> {
+  return parseResponse(await fetch(`${API_BASE_URL}/auth/forgot-password`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifier }) }));
+}
+
 export async function getMe(): Promise<AuthUser> { return parseResponse<AuthUser>(await fetch(`${API_BASE_URL}/auth/me`, { headers: authHeaders() })); }
 export async function updatePresence(): Promise<void> { await fetch(`${API_BASE_URL}/auth/presence`, { method: "POST", headers: authHeaders() }); }
 export async function logout(): Promise<void> { await fetch(`${API_BASE_URL}/auth/logout`, { method: "POST", headers: authHeaders() }); setAuthToken(null); }

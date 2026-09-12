@@ -234,6 +234,10 @@ class PasswordChangeRequest(BaseModel):
     )
 
 
+class ForgotPasswordRequest(BaseModel):
+    identifier: str = Field(min_length=2, max_length=254)
+
+
 class NewUserInterpretRequest(BaseModel):
     instruction: str = Field(
         min_length=3,
