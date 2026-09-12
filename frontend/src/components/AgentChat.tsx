@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { getAuthToken } from "@/lib/api";
 
-interface AgentChatProps { runId?: string; embedded?: boolean; }
+interface AgentChatProps { runId?: string; batchId?: string | null; embedded?: boolean; }
 interface ChatMessage { role: "user" | "assistant"; text: string; }
 
 type SpeechRecognitionEventLike = { results: ArrayLike<{ 0: { transcript: string } }> };
@@ -18,7 +18,7 @@ type SpeechRecognitionLike = {
 };
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
-export default function AgentChat({ runId, embedded = false }: AgentChatProps) {
+export default function AgentChat({ runId, batchId = null, embedded = false }: AgentChatProps) {
   const { language, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(embedded);
   const [question, setQuestion] = useState("");
@@ -26,6 +26,17 @@ export default function AgentChat({ runId, embedded = false }: AgentChatProps) {
   const [loading, setLoading] = useState(false);
   const [downloadingAudio, setDownloadingAudio] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  // Scope of the conversation, decided for the user, never a setting:
+  // files uploaded together share one batch id, so the assistant answers about
+  // the whole selection (a single-file upload is simply a batch of one, and an
+  // analysis with no batch falls back to that single run).
+  const scope: "file" | "batch" = batchId ? "batch" : "file";
+  const scopeId = batchId ?? runId;
+  const hasScope = Boolean(scopeId);
+  const chatEndpoint = batchId
+    ? `/backend/api/analyses/batch/${batchId}/chat`
+    : `/backend/api/validation/${runId}/chat`;
 
   function speechSegments(text: string) {
     const tokens = text.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]+|[A-Za-z]+|[^\u0600-\u06FFA-Za-z]+/g) ?? [text];
@@ -126,6 +137,32 @@ export default function AgentChat({ runId, embedded = false }: AgentChatProps) {
     }
   }
 
+  async function refreshChat() {
+    if (refreshing) return;
+    // Clear what the user sees AND what the model remembers: without the second
+    // half, a "cleared" conversation would keep steering the next answer.
+    window.speechSynthesis.cancel();
+    setMessages([]);
+    setQuestion("");
+    setError(null);
+    if (!hasScope) return;
+    setRefreshing(true);
+    try {
+      const response = await fetch(chatEndpoint, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getAuthToken() ?? ""}` },
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { detail?: string };
+        throw new Error(body.detail ?? "The assistant could not clear this conversation's history.");
+      }
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "The assistant could not clear this conversation's history.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     const text = question.trim();
@@ -133,13 +170,13 @@ export default function AgentChat({ runId, embedded = false }: AgentChatProps) {
     setMessages((current) => [...current, { role: "user", text }]);
     setQuestion("");
     setError(null);
-    if (!runId) {
+    if (!hasScope) {
       setMessages((current) => [...current, { role: "assistant", text: language === "ar" ? "ابدأ فحصًا جديدًا أولًا، وبعد ظهور النتائج أقدر أشرح لك الأخطاء والتوصيات بالتفصيل." : "Start a new check first. Once results are ready, I can explain the errors and recommendations." }]);
       return;
     }
     setLoading(true);
     try {
-      const response = await fetch(`/backend/api/validation/${runId}/chat`, {
+      const response = await fetch(chatEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAuthToken() ?? ""}` },
         body: JSON.stringify({ question: text }),
@@ -164,9 +201,15 @@ export default function AgentChat({ runId, embedded = false }: AgentChatProps) {
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">{t("AI assistant")}</p>
             <h2 className="mt-2 text-xl font-bold">{t("Ask about this analysis")}</h2>
           </div>
-          {!embedded && <button type="button" onClick={() => setIsOpen(false)} aria-label="Close assistant" className="rounded-full bg-slate-100 px-3 py-1.5 text-lg hover:bg-slate-200">×</button>}
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={refreshChat} disabled={refreshing} title={t("Refresh chat")} aria-label={t("Refresh chat")} className="flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-200 disabled:opacity-50">
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 5v6h-6" /></svg>
+              {refreshing ? t("Clearing...") : t("Refresh chat")}
+            </button>
+            {!embedded && <button type="button" onClick={() => setIsOpen(false)} aria-label="Close assistant" className="rounded-full bg-slate-100 px-3 py-1.5 text-lg hover:bg-slate-200">×</button>}
+          </div>
         </div>
-        <p className="mt-2 text-sm text-slate-500">{t("Answers are grounded in the current validation run. Voice input and playback use your browser.")}</p>
+        <p className="mt-2 text-sm text-slate-500">{scope === "batch" ? t("Answers are grounded in every file of this upload. Voice input and playback use your browser.") : t("Answers are grounded in the current validation run. Voice input and playback use your browser.")}</p>
       </div>
       <div className={`${embedded ? 'min-h-0 flex-1' : 'max-h-80'} space-y-3 overflow-y-auto p-5`} aria-live="polite">
         {messages.length === 0 && <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">{t("Try: “Which errors should I fix first?”")}</p>}
@@ -183,7 +226,7 @@ export default function AgentChat({ runId, embedded = false }: AgentChatProps) {
       </div>
       <form onSubmit={submit} className="border-t border-slate-200 p-5">
         <div className="flex gap-2">
-          <input value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={2000} placeholder={t("Ask a question about the detected errors...")} className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500" />
+          <input value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={2000} placeholder={scope === "batch" ? t("Ask about all files in this upload...") : t("Ask a question about the detected errors...")} className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500" />
           <button type="button" onClick={listen} title="Voice input" className="rounded-xl border border-slate-300 px-4 hover:bg-slate-50">🎙️</button>
           <button type="submit" disabled={loading || !question.trim()} className="rounded-xl bg-blue-600 px-5 text-sm font-bold text-white disabled:bg-slate-400">{loading ? t("Asking...") : t("Send")}</button>
         </div>
@@ -193,7 +236,7 @@ export default function AgentChat({ runId, embedded = false }: AgentChatProps) {
     )}
 
     {!embedded && <div className="group flex items-center gap-2 rtl:flex-row-reverse">
-      {!isOpen && <button type="button" onClick={() => setIsOpen(true)} tabIndex={-1} aria-hidden="true" className="pointer-events-none translate-x-2 rounded-xl bg-white px-3 py-2 text-start text-[10px] leading-4 text-[#17332f] opacity-0 shadow-[0_6px_18px_rgba(18,60,53,.11)] ring-1 ring-slate-100 transition duration-200 group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-x-0 group-focus-within:opacity-100 rtl:-translate-x-2 rtl:group-hover:translate-x-0 rtl:group-focus-within:translate-x-0"><strong className="block text-[11px] text-[#075f50]">{language === "ar" ? "اسأل معيار" : "Ask Meyaar"}</strong><span>{language === "ar" ? (runId ? "ما معنى هذا التحليل؟" : "كيف أبدأ الفحص؟") : (runId ? "What does this analysis mean?" : "How do I start a check?")}</span></button>}
+      {!isOpen && <button type="button" onClick={() => setIsOpen(true)} tabIndex={-1} aria-hidden="true" className="pointer-events-none translate-x-2 rounded-xl bg-white px-3 py-2 text-start text-[10px] leading-4 text-[#17332f] opacity-0 shadow-[0_6px_18px_rgba(18,60,53,.11)] ring-1 ring-slate-100 transition duration-200 group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-x-0 group-focus-within:opacity-100 rtl:-translate-x-2 rtl:group-hover:translate-x-0 rtl:group-focus-within:translate-x-0"><strong className="block text-[11px] text-[#075f50]">{language === "ar" ? "اسأل معيار" : "Ask Meyaar"}</strong><span>{language === "ar" ? (hasScope ? "ما معنى هذا التحليل؟" : "كيف أبدأ الفحص؟") : (hasScope ? "What does this analysis mean?" : "How do I start a check?")}</span></button>}
       <button
         type="button"
         onClick={() => setIsOpen((value) => !value)}

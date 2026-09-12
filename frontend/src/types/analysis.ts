@@ -38,6 +38,7 @@ export interface VisionAnalysisResponse {
   compliance_score: number;
   model_status: string;
   analysis_id?: string | null;
+  batch_id?: string | null;
 }
 
 export type MissingMapElement = "title" | "legend" | "scale" | "north_arrow";
@@ -173,6 +174,7 @@ export interface VectorProcessingResponse {
   layer_geojson?: FeatureCollection;
   fixed_layer_geojson?: FeatureCollection;
   analysis_id?: string | null;
+  batch_id?: string | null;
 }
 
 export type ProcessingResult =

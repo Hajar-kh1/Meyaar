@@ -56,7 +56,7 @@ from src.api.schemas import (
     NewUserInterpretRequest,
     NewUserCreateRequest,
 )
-from src.api.auth import database_engine, ensure_app_tables, hash_password, verify_password, create_session, token_hash, current_user, save_analysis, new_invite_code, require_run_access
+from src.api.auth import database_engine, ensure_app_tables, hash_password, verify_password, create_session, token_hash, current_user, save_analysis, new_invite_code, require_run_access, require_batch_access, normalize_batch_id
 
 from src.vision.image_loader import InvalidImageError, inspect_image
 
@@ -286,7 +286,8 @@ def list_saved_analyses(user: dict = Depends(current_user)):
         ensure_app_tables(connection)
         rows = connection.execute(text("""
             SELECT a.analysis_id, a.filename, a.analysis_type, a.status, a.compliance_score,
-                   a.total_errors, a.created_at, a.user_id, u.name AS owner_name
+                   a.total_errors, a.created_at, a.user_id, a.batch_id::text AS batch_id,
+                   u.name AS owner_name
             FROM public.saved_analyses a JOIN public.app_users u ON u.user_id = a.user_id
             WHERE (a.user_id = :user_id) OR (:is_manager AND a.team_id = :team_id)
             ORDER BY a.created_at DESC
@@ -993,8 +994,10 @@ async def create_batch_report_pdf(body: BatchReportRequest, user: dict = Depends
 async def inspect_file(
     file: List[UploadFile] = File(...),
     layer_type: str | None = Form(None),
+    batch_id: str | None = Form(None),
     user: dict = Depends(current_user),
 ):
+    batch_id = normalize_batch_id(batch_id)
     if not user["team_id"]:
         raise HTTPException(
             status_code=403,
@@ -1049,9 +1052,11 @@ async def inspect_file(
                 filename,
                 routed_type,
                 result,
+                batch_id,
             )
 
             result["analysis_id"] = analysis_id
+            result["batch_id"] = batch_id
             delivery = await run_in_threadpool(
                 run_post_inspection_delivery,
                 filename,
@@ -1167,8 +1172,10 @@ async def inspect_uploaded_image(file: UploadFile = File(...)):
 @app.post("/images/analyze", response_model=VisionAnalysisResponse)
 async def analyze_uploaded_image(
     file: UploadFile = File(...),
+    batch_id: str | None = Form(None),
     user: dict = Depends(current_user),
 ):
+    batch_id = normalize_batch_id(batch_id)
     if not user["team_id"]:
         raise HTTPException(status_code=403, detail="Create or join a team before starting an analysis.")
     filename = file.filename or ""
@@ -1207,8 +1214,10 @@ async def analyze_uploaded_image(
             filename,
             "image",
             result.model_dump(mode="json"),
+            batch_id,
         )
         result.analysis_id = analysis_id
+        result.batch_id = batch_id
         return result
 
     except InvalidImageError as error:
@@ -1241,8 +1250,10 @@ MAX_VECTOR_SIZE = 500 * 1024 * 1024
 async def process_uploaded_vector(
     file: UploadFile = File(...),
     layer_type: str | None = Form(None),
+    batch_id: str | None = Form(None),
     user: dict = Depends(current_user),
 ):
+    batch_id = normalize_batch_id(batch_id)
     if not user["team_id"]:
         raise HTTPException(status_code=403, detail="Create or join a team before starting an analysis.")
     filename = file.filename or ""
@@ -1273,8 +1284,9 @@ async def process_uploaded_vector(
             content,
             layer_type,
         )
-        analysis_id = await run_in_threadpool(save_analysis, user["user_id"], user["team_id"], filename, "vector", result)
+        analysis_id = await run_in_threadpool(save_analysis, user["user_id"], user["team_id"], filename, "vector", result, batch_id)
         result["analysis_id"] = analysis_id
+        result["batch_id"] = batch_id
         return result
 
     except InvalidVectorFileError as error:

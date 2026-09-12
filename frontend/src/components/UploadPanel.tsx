@@ -115,6 +115,9 @@ export default function UploadPanel({
       if (workingFiles.length !== files.length) setFiles(workingFiles);
       let finalResult: ProcessingResult | null = null;
       const completed: BatchUploadItem[] = [];
+      // One id for this whole selection: every file uploaded below carries it,
+      // which is what lets the assistant answer questions about the folder.
+      const batchId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : undefined;
       for (let index = 0; index < workingFiles.length; index += 1) {
         const selectedFile = workingFiles[index];
         const mode = detectUploadMode(selectedFile);
@@ -122,8 +125,8 @@ export default function UploadPanel({
         setCurrentFile(index);
         const updateProgress = (filePercent: number) => setProgress(Math.round(((index + filePercent / 100) / workingFiles.length) * 100));
         finalResult = mode === "vector"
-          ? await processVectorFile(selectedFile, undefined, updateProgress)
-          : await analyzeMapImage(selectedFile, updateProgress);
+          ? await processVectorFile(selectedFile, undefined, updateProgress, batchId)
+          : await analyzeMapImage(selectedFile, updateProgress, batchId);
         completed.push({ result: finalResult, file: selectedFile, mode });
       }
       const finalFile = workingFiles[workingFiles.length - 1];

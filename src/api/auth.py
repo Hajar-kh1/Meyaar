@@ -102,6 +102,8 @@ def ensure_app_tables(connection) -> None:
         )
     """))
     connection.execute(text("ALTER TABLE public.saved_analyses ADD COLUMN IF NOT EXISTS team_id UUID"))
+    connection.execute(text("ALTER TABLE public.saved_analyses ADD COLUMN IF NOT EXISTS batch_id UUID"))
+    connection.execute(text("CREATE INDEX IF NOT EXISTS idx_saved_analyses_batch ON public.saved_analyses(batch_id, created_at)"))
     connection.execute(text("CREATE TABLE IF NOT EXISTS public.app_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)"))
     migrated = connection.execute(text("SELECT 1 FROM public.app_migrations WHERE name = 'team_memberships_v1'")).scalar()
     if not migrated:
@@ -253,7 +255,54 @@ def require_run_access(connection, user: dict, run_id: str) -> None:
         raise HTTPException(status_code=404, detail="Validation run not found.")
 
 
-def save_analysis(user_id: str, team_id: str, filename: str, analysis_type: str, result: dict) -> str:
+def normalize_batch_id(value: str | None) -> str | None:
+    """Validate an optional batch id from a client.
+
+    A batch groups the analyses produced by ONE upload selection (a folder or a
+    multi-file pick), so the whole selection can be queried as a unit by the
+    chat agent. Absent/blank stays None (a single, ungrouped analysis); anything
+    that is not a UUID is rejected rather than stored as junk.
+    """
+    if value is None:
+        return None
+    text_value = value.strip()
+    if not text_value:
+        return None
+    try:
+        return str(uuid.UUID(text_value))
+    except (ValueError, AttributeError, TypeError):
+        raise HTTPException(status_code=422, detail="batch_id must be a UUID.")
+
+
+def require_batch_access(connection, user: dict, batch_id: str) -> list[dict]:
+    """Authorise a batch and return its analyses (analysis_id, filename, run_id).
+
+    The batch is treated as one unit: if ANY analysis in it is not visible to
+    the caller (owner, or a manager/leader of the owning team) the whole batch
+    is reported as not found — so a batch can never leak a colleague's file.
+    """
+    rows = connection.execute(text("""
+        SELECT analysis_id::text AS analysis_id, filename,
+               result_payload->>'run_id' AS run_id
+        FROM public.saved_analyses
+        WHERE batch_id::text = :batch_id
+    """), {"batch_id": batch_id}).mappings().all()
+    if not rows:
+        raise HTTPException(status_code=404, detail="Analysis batch not found.")
+    visible = connection.execute(text("""
+        SELECT count(*)::int FROM public.saved_analyses
+        WHERE batch_id::text = :batch_id
+          AND ((user_id = :user_id) OR (:is_manager AND team_id = :team_id))
+    """), {"batch_id": batch_id, "user_id": user["user_id"],
+           "team_id": user["team_id"],
+           "is_manager": user["role"] in ("manager", "leader")}).scalar()
+    if visible != len(rows):
+        raise HTTPException(status_code=404, detail="Analysis batch not found.")
+    return [dict(row) for row in rows]
+
+
+def save_analysis(user_id: str, team_id: str, filename: str, analysis_type: str,
+                  result: dict, batch_id: str | None = None) -> str:
     analysis_id = str(uuid.uuid4())
     if analysis_type == "vector":
         total_errors = int(result.get("validation", {}).get("total_errors", 0))
@@ -265,10 +314,11 @@ def save_analysis(user_id: str, team_id: str, filename: str, analysis_type: str,
         connection.execute(text("""
             INSERT INTO public.saved_analyses (
                 analysis_id, user_id, team_id, filename, analysis_type, status,
-                compliance_score, total_errors, result_payload
+                compliance_score, total_errors, result_payload, batch_id
             ) VALUES (
                 :analysis_id, :user_id, :team_id, :filename, :analysis_type, :status,
-                :compliance_score, :total_errors, CAST(:result_payload AS JSONB)
+                :compliance_score, :total_errors, CAST(:result_payload AS JSONB),
+                CAST(:batch_id AS UUID)
             )
         """), {
             "analysis_id": analysis_id,
@@ -280,5 +330,6 @@ def save_analysis(user_id: str, team_id: str, filename: str, analysis_type: str,
             "compliance_score": result.get("compliance_score"),
             "total_errors": total_errors,
             "result_payload": __import__("json").dumps(result, ensure_ascii=False, default=str),
+            "batch_id": batch_id,
         })
     return analysis_id

@@ -37,7 +37,8 @@ from typing import Any, Optional
 from agent.core.config import settings
 from agent.core.llm import get_llm
 from agent.db.base import Repository
-from agent.retrieval import build_analysis_dataset, fit_context
+from agent.retrieval import (build_analysis_dataset, build_batch_analysis_dataset,
+                             fit_context, recent_uploads_summary)
 from agent.rules.registry import get_rule
 
 logger = logging.getLogger(__name__)
@@ -111,7 +112,34 @@ SYSTEM_PROMPT = (
     "   return a structured summary of ALL meaningful available fields — "
     "   grouped by layer/feature and covering dimensions, areas, distances, "
     "   percentages/scores, counts, coordinates and the analysis metadata — "
-    "   not just the headline counts."
+    "   not just the headline counts. "
+    # ── upload batch scope (a folder / multi-file selection) ──────────────
+    "13) When the context has a 'batch_id' and a 'files' list, the question is "
+    "   about ONE UPLOAD BATCH: several files analyzed together. Answer across "
+    "   the whole selection: use 'files' for per-file numbers (each entry has "
+    "   the file's name, layer, stored error count, compliance score and run) "
+    "   and use 'source_file' on findings/analyses/feature records to say which "
+    "   file a detail came from. Comparisons ('which file has the most "
+    "   errors?', 'summarise the folder', 'which files are clean?') are expected "
+    "   — compute them from the stored numbers, never from memory. Totals must "
+    "   be stated as coming from the listed files. If a file has no run "
+    "   (e.g. a map image), say it has no validation run instead of inventing "
+    "   findings for it. Never let one file's values stand in for another's. "
+    # ── the caller's OTHER uploads ────────────────────────────────────────
+    "14) The context may carry 'recent_uploads': the caller's own earlier "
+    "   uploads, newest first, one entry per upload selection (batch_id, "
+    "   uploaded_at, files, filenames, total_errors, layers). Use it ONLY to "
+    "   answer questions about other uploads ('how many files was the previous "
+    "   batch?', 'what was my last upload?', 'compare this batch with the "
+    "   previous one', 'which upload had the most errors?'). The upload being "
+    "   discussed now is the entry marked is_current; 'the previous batch' means "
+    "   the entry listed immediately AFTER it. Read the numbers (file counts, "
+    "   error totals, names) exactly as listed — never estimate them, and never "
+    "   reuse them as if they were this upload's values. If the asked-about "
+    "   upload is not in the list (or the list is absent), say plainly that it "
+    "   is not available; never invent an upload, a file count or a score. "
+    "   Other users' uploads are never listed, so a question about someone "
+    "   else's upload is not answerable from here."
 )
 
 MAX_CHAT_ANALYSES = 100
@@ -122,7 +150,8 @@ def _question_language(question: str) -> str:
     return "Arabic" if any("\u0600" <= char <= "\u06ff" for char in question) else "English"
 
 
-def build_chat_context(repo: Repository, run_id: str) -> dict:
+def build_chat_context(repo: Repository, run_id: str,
+                       viewer: Optional[dict] = None) -> dict:
     """Assemble the grounded context for one run.
 
     Includes the COMPLETE analysis dataset (see agent/retrieval.py): the whole
@@ -131,6 +160,10 @@ def build_chat_context(repo: Repository, run_id: str) -> dict:
     name — so questions about any stored value (dimensions, areas, distances,
     percentages, counts, coordinates, or a field added later) are answered
     from real data instead of a hard-coded field list.
+
+    ``viewer`` (the authenticated caller) additionally brings in that caller's
+    own recent uploads, so questions about OTHER uploads ("how many files was
+    the previous batch?") are answerable — see recent_uploads_summary.
     """
     analyses = repo.fetch_analyses(run_id)
     results = repo.fetch_results(run_id)
@@ -183,6 +216,77 @@ def build_chat_context(repo: Repository, run_id: str) -> dict:
         "available_fields": dataset["available_fields"],
         "data_counts": dataset["counts"],
     }
+    # The caller's OTHER uploads: included only for an identified caller (so the
+    # anonymous/CLI path stays unchanged and small). The entry for the upload
+    # this run came from is marked is_current, which is how "the previous batch"
+    # resolves even in single-run chat.
+    if viewer:
+        current_batch = next(
+            (str(r.get("batch_id")) for r in dataset["analysis_records"]
+             if isinstance(r, dict) and r.get("batch_id")), None)
+        context["recent_uploads"] = recent_uploads_summary(
+            repo, viewer, current_scope_id=current_batch)
+    if dataset.get("truncation"):
+        context["data_truncation"] = dataset["truncation"]
+    return fit_context(context)
+
+
+def build_batch_chat_context(repo: Repository, batch_id: str,
+                             viewer: Optional[dict] = None) -> dict:
+    """Complete context for ONE UPLOAD BATCH (a folder / multi-file selection).
+
+    Same completeness rules as ``build_chat_context``, but merged across every
+    analysis that shares the batch id: a per-file summary (name, layer, stored
+    error count, compliance score, run), all findings, all agent analyses, every
+    stored payload and every feature record (namespaced by file), plus the
+    per-file remediation audit summary so "what did the agent fix in this
+    batch?" is answerable truthfully.
+
+    ``viewer`` (the authenticated caller) additionally brings in that caller's
+    own recent uploads — with THIS batch marked is_current — so "how many files
+    was the previous batch?" is answerable without ever exposing another user's
+    uploads.
+    """
+    dataset = build_batch_analysis_dataset(repo, batch_id)
+    if not dataset["files"]:
+        raise ValueError(
+            f"No analyses found for upload batch {batch_id}. "
+            "Upload the folder again (each upload selection gets its own batch).")
+
+    remediation = {"available": False, "by_file": {}, "items": []}
+    for entry in dataset["files"]:
+        run_id = entry.get("run_id")
+        if not run_id:
+            continue        # a map image has no validation run / audit
+        try:
+            per_run = _remediation_context(repo, run_id)
+        except Exception:
+            per_run = {"available": False, "summary": {}, "items": []}
+        remediation["by_file"][entry["filename"]] = per_run.get("summary", {})
+        remediation["available"] = remediation["available"] or per_run.get("available", False)
+        for item in per_run.get("items", []):
+            if len(remediation["items"]) >= MAX_CHAT_ANALYSES:
+                break
+            remediation["items"].append({**item, "source_file": entry["filename"]})
+
+    context = {
+        "batch_id": batch_id,
+        "scope": "upload batch (all files of one upload selection)",
+        "files": dataset["files"],
+        "analyses": dataset["analyses"][:MAX_CHAT_ANALYSES],
+        "analyses_in_context": min(len(dataset["analyses"]), MAX_CHAT_ANALYSES),
+        "total_analyses": len(dataset["analyses"]),
+        "findings": dataset["findings"],
+        "analysis_records": dataset["analysis_records"],
+        "feature_data": dataset["feature_data"],
+        "available_fields": dataset["available_fields"],
+        "remediation": remediation,
+        "notes": dataset.get("notes", []),
+        "data_counts": dataset["counts"],
+    }
+    if viewer:
+        context["recent_uploads"] = recent_uploads_summary(
+            repo, viewer, current_scope_id=batch_id)
     if dataset.get("truncation"):
         context["data_truncation"] = dataset["truncation"]
     return fit_context(context)
@@ -276,8 +380,18 @@ def _conversation_block(history: list[dict]) -> str:
 def answer_question(repo: Repository, run_id: str, question: str,
                     llm: Optional[Any] = None,
                     user_key: str = "anonymous",
-                    history_limit: int = CHAT_HISTORY_LIMIT) -> dict:
+                    history_limit: int = CHAT_HISTORY_LIMIT,
+                    context: Optional[dict] = None,
+                    scope_label: Optional[str] = None,
+                    viewer: Optional[dict] = None) -> dict:
     """Answer a question about a run. Returns {question, answer, sources}.
+
+    ``run_id`` doubles as the conversation-memory scope, so batch chat (which
+    passes the batch id as the scope) keeps its own separate thread. ``context``
+    and ``scope_label`` let a caller supply a pre-built context — see
+    ``answer_batch_question`` / ``build_batch_chat_context``. ``viewer`` is the
+    authenticated caller: it unlocks that caller's own recent uploads in the
+    context (never another user's) so questions about other uploads work.
 
     Conversation memory: prior turns for this (run_id, user_key) are replayed
     into the prompt (continuity for follow-ups) and the new turn is persisted
@@ -290,7 +404,8 @@ def answer_question(repo: Repository, run_id: str, question: str,
             "Chat requires an LLM key (MEYAAR_LLM_API_KEY in agent/.env). "
             "The analysis endpoints work without one; chat does not.")
 
-    context = build_chat_context(repo, run_id)
+    context = context if context is not None else build_chat_context(
+        repo, run_id, viewer=viewer)
     payload = json.dumps(context, ensure_ascii=False, default=str)
     history = _load_history(repo, run_id, user_key, history_limit)
     conversation = _conversation_block(history)
@@ -301,7 +416,10 @@ def answer_question(repo: Repository, run_id: str, question: str,
         "The answer field MUST be written in that language. "
         "Keep technical IDs unchanged internally, but omit them from the visible "
         "answer unless the user explicitly requests them. Summarize repeated "
-        "findings by category instead of listing long identifiers.\n\nContext (JSON): " + payload +
+        "findings by category instead of listing long identifiers.\n\n"
+        "Scope of this conversation: "
+        + (scope_label or ("single analysis run " + str(run_id))) +
+        ".\n\nContext (JSON): " + payload +
         (("\n\nConversation history (your earlier turns about this run):\n" + conversation)
          if conversation else "") +
         "\n\nUser question: " + question +
@@ -347,3 +465,31 @@ def answer_question(repo: Repository, run_id: str, question: str,
                 "chat memory write failed for run %s (table absent or DB "
                 "error); answer still returned", run_id, exc_info=True)
     return {"question": question, "answer": answer, "sources": sources}
+
+
+def answer_batch_question(repo: Repository, batch_id: str, question: str,
+                          llm: Optional[Any] = None,
+                          user_key: str = "anonymous",
+                          history_limit: int = CHAT_HISTORY_LIMIT,
+                          viewer: Optional[dict] = None) -> dict:
+    """Answer a question about an upload BATCH (a folder / multi-file selection).
+
+    Same grounding, unit and memory rules as single-run chat: the context is
+    merged across every analysis stored with this batch id (per-file summary +
+    all findings, analyses, payloads and feature records), the conversation is
+    keyed on the batch id so follow-ups ("and the second file?") keep their
+    context, and cited sources stay filtered to findings that exist in the
+    merged context. Raises ValueError when the batch has no stored analyses.
+
+    ``viewer`` is the authenticated caller; it unlocks that caller's own recent
+    uploads (this batch marked is_current) so "how many files was the previous
+    batch?" is answered from the real numbers — never from another user's data.
+    """
+    context = build_batch_chat_context(repo, batch_id, viewer=viewer)
+    files = context["data_counts"]["files"]
+    return answer_question(
+        repo, batch_id, question, llm=llm, user_key=user_key,
+        history_limit=history_limit, context=context,
+        scope_label=(f"an upload batch of {files} file(s) — see 'files' for the "
+                     "per-file numbers, and 'source_file' to attribute a detail "
+                     "to the file it came from"))

@@ -38,6 +38,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="Single question (non-interactive); omit for a REPL")
     p_chat.add_argument("--speak", action="store_true",
                         help="Read each answer aloud via TTS (macOS 'say')")
+    p_chat.add_argument("--user-id", default="",
+                        help="Act as this user id (a real app_users.user_id) so the "
+                             "chat also lists your recent uploads — needed for "
+                             "questions about EARLIER uploads ('how many files was "
+                             "the previous batch?'). Omit to chat run-scoped only.")
     args = parser.parse_args(argv)
 
     if args.command == "analyze":
@@ -99,7 +104,12 @@ def _cmd_chat(args) -> int:
         try:
             # user_key="cli" keeps one private memory thread per CLI session
             # (repo instance), separate from any UI user's conversation.
-            out = answer_question(repo, args.run_id, q, llm=llm, user_key="cli")
+            # --user-id additionally unlocks that user's own recent uploads, so
+            # the CLI can answer questions about earlier uploads too.
+            out = answer_question(
+                repo, args.run_id, q, llm=llm, user_key="cli",
+                viewer=({"user_id": args.user_id, "role": "user"}
+                        if getattr(args, "user_id", "") else None))
         except Exception as exc:
             print(f"error: {exc}")
             if args.ask:

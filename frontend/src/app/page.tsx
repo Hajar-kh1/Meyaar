@@ -121,10 +121,10 @@ export default function Home() {
           {view === "team" && (user.role === "manager" || user.role === "leader" ? <TeamDashboard user={user} onTeamChange={(nextUser) => { setUser(nextUser); setResult(null); setView(nextUser.role === "manager" || nextUser.role === "leader" ? "team" : "dashboard"); }} /> : <TeamOnboarding embedded user={user} onReady={(nextUser) => { setUser(nextUser); setResult(null); setView("team"); }} />)}
           {view === "profile" && <ProfilePanel user={user} />}
           {view === "settings" && <SettingsPanel />}
-          {view === "assistant" && (vectorResult ? <AgentChat runId={vectorResult.run_id} embedded /> : result ? <section className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center"><h2 className="text-xl font-bold text-amber-950">Assistant requires a vector run</h2><p className="mt-2 text-sm text-amber-800">Upload vector data so the assistant can answer from stored validation results.</p></section> : null)}
+          {view === "assistant" && (vectorResult ? <AgentChat runId={vectorResult.run_id} batchId={vectorResult.batch_id ?? null} embedded /> : result ? <section className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center"><h2 className="text-xl font-bold text-amber-950">Assistant requires a vector run</h2><p className="mt-2 text-sm text-amber-800">Upload vector data so the assistant can answer from stored validation results.</p></section> : null)}
         </main>
       </div>
-      {view !== "assistant" && <AgentChat runId={vectorResult?.run_id} />}
+      {view !== "assistant" && <AgentChat runId={vectorResult?.run_id} batchId={vectorResult?.batch_id ?? null} />}
     </div>
   );
 }

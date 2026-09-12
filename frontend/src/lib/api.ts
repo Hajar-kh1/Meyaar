@@ -88,9 +88,13 @@ export async function checkBackendHealth(): Promise<boolean> {
 export async function analyzeMapImage(
   file: File,
   onProgress?: (percent: number) => void,
+  batchId?: string,
 ): Promise<VisionAnalysisResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  // One upload selection (folder / multi-file pick) shares a batch id so the
+  // agent can later answer questions about the whole selection at once.
+  if (batchId) formData.append("batch_id", batchId);
   return uploadWithProgress<VisionAnalysisResponse>(`${API_BASE_URL}/images/analyze`, formData, onProgress);
 }
 
@@ -99,6 +103,7 @@ export async function processVectorFile(
   file: File,
   layerType?: LayerType,
   onProgress?: (percent: number) => void,
+  batchId?: string,
 ): Promise<VectorProcessingResponse> {
   const formData = new FormData();
 
@@ -106,6 +111,10 @@ export async function processVectorFile(
 
   if (layerType) {
     formData.append("layer_type", layerType);
+  }
+
+  if (batchId) {
+    formData.append("batch_id", batchId);
   }
 
   return uploadWithProgress<VectorProcessingResponse>(`${API_BASE_URL}/vectors/process`, formData, onProgress);

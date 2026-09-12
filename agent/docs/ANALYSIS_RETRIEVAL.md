@@ -101,6 +101,112 @@ Real chat answers (deepseek-chat, run `43a44b94-…`, roads layer):
   plot area or frontage field, and no setback field … anywhere in the stored
   data, so plot dimensions and setbacks are not available in this analysis."*
 
+## Upload batches (a folder / multi-file selection): chat across all files
+
+An upload selection of several files produces one analysis per file (the
+pipeline runs per file and each gets its own run id). Chat used to be bound to
+a single run, so a folder of 7 files meant 7 separate conversations and no
+"summarise the folder".
+
+**Design (Option A — explicit batch):** every upload selection sends one
+`batch_id` (a UUID the UI generates per selection) and
+`public.saved_analyses.batch_id` stores it, so a batch is an explicit,
+persistent group — re-openable later, not inferred from filenames.
+
+| Piece | What it does |
+|---|---|
+| `POST /vectors/process`, `POST /images/analyze`, `POST /inspect` | accept an optional `batch_id` form field (validated by `normalize_batch_id`; malformed → 422) and echo it back in the response |
+| `GET /analyses` | now returns `batch_id`, so the UI can group saved analyses |
+| `require_batch_access` (`src/api/auth.py`) | all-or-nothing authorisation: if any analysis in the batch is not visible to the caller (owner, or manager/leader of the owning team) the whole batch is reported as not found |
+| `fetch_analysis_records_by_batch` (Postgres + in-memory) | complete payloads for the batch, oldest first |
+| `build_batch_analysis_dataset` / `build_batch_chat_context` | merges the per-file datasets: a `files` summary (name, layer, stored error count, compliance score, run), all findings, all agent analyses, every stored payload, every feature record namespaced `"<filename>#<feature_id>"` (two files can legitimately reuse feature ids), per-file remediation counts, and a dynamic field index |
+| `POST /api/analyses/batch/{batch_id}/chat` · `GET /api/analyses/batch/{batch_id}` | chat + full merged dataset for a batch |
+| `get_batch_analysis_record(batch_id)` tool | the same dataset for agent-side use |
+| Conversation memory | keyed on the batch id (the `agent_chat_messages.run_id` column stores the *chat scope*: a run id or a batch id), so batch follow-ups keep their own thread |
+| Frontend | `UploadPanel` generates one batch id per selection and sends it with every file. `AgentChat` has **no scope switch**: the scope is implied by the upload, so a folder (batch id) gets the whole-folder thread and a lone file (no batch) gets its single-run thread. Its one **Refresh chat** button clears the messages *and* calls `DELETE` on the matching chat endpoint, so the cleared conversation cannot leak back into later answers |
+
+**Cross-upload questions ("how many files was the previous batch?").** A
+conversation is scoped to ONE upload, so questions about an *earlier* upload
+used to be unanswerable. The fix widens the DATA, not the scope: the context
+also carries `recent_uploads` — the caller's own recent upload selections,
+newest first, one entry each (`batch_id`, `uploaded_at`, exact `files` count,
+`filenames`, `total_errors`, `layers`), with the upload being discussed marked
+`is_current`. "The previous batch" therefore means the entry listed
+immediately after the current one, and the numbers are read, never estimated.
+
+| Piece | What it does |
+|---|---|
+| `fetch_recent_upload_batches(viewer, limit)` (Postgres + in-memory) | one row per upload selection: file count, names, upload time, error total; newest first. Visibility matches `require_batch_access` — own uploads, plus team uploads only for a manager/leader of that team; a viewer with no identity gets `{}` |
+| `recent_uploads_summary(repo, viewer, current_scope_id)` (`agent/retrieval.py`) | shapes it for the prompt: bounded to `MAX_RECENT_UPLOADS` uploads and `MAX_RECENT_FILENAMES` names each (the file COUNT stays exact, so "how many files" is never a guess), marks `is_current`, and states the `unbatched_analyses` caveat (older analyses predate upload grouping — individual files, not batches) |
+| `build_chat_context` / `build_batch_chat_context` | include `recent_uploads` only when an identified caller is supplied, so the anonymous/CLI path is unchanged. Single-run chat marks the batch the run came from, so the question resolves from per-file chat too |
+| System prompt rule 14 | how to read the list: use it only for other uploads, resolve "the previous batch" from the `is_current` marker, quote the listed numbers exactly, and say plainly that an upload outside the list (or another user's) is not available |
+| `get_recent_uploads(user_id, …)` tool | the same list for agent-side use |
+| `GET /api/uploads/recent` | the caller's own uploads as JSON (verifiable without the model) |
+
+Live check (real dev DB + real `deepseek-chat`, caller = the account with 37
+stored analyses; chat scope = the newest upload `e62ede1a`, 3 files):
+
+```
+listed uploads: e62ede1a 3 files / a5f81f2e 4 files / 44be75ab 7 files / b7c1d2e3 3 files
+                unbatched_analyses: 20
+
+Q: how many files was the previous batch?
+A: "The previous batch contained 4 files (streets/4.geojson, streets/5.geojson,
+   streets/6.geojson, streets/7.geojson), all in the roads layer, with a total
+   of 4 errors."
+
+Q: which of my uploads had the most errors?
+A: "...the batch of 7 files (Riyadh-street/1.geojson through
+   Riyadh-street/7.geojson), which had 5 errors. The others, from newest to
+   oldest: the current batch of 3 files has 1 error; the previous batch of 4
+   files has 4 errors; and the oldest listed batch of 3 files has 3 errors."
+```
+
+**Honesty guard:** `notes` tells the model that per-file payloads/findings/
+analyses are that run's immutable record, while `feature_data` comes from the
+**live layer tables** — which hold only the most recently uploaded file's
+features (each upload replaces the layer table). So a feature record describes
+the current layer state, and a file without a run (e.g. a map image) is reported
+as having no validation run rather than given invented findings.
+
+**Chat refresh (`DELETE …/chat`).** The chat has a single refresh button and no
+scope switch, so the scope is decided by what was uploaded: a folder (batch id)
+refreshes the whole-folder thread, a lone file (no batch) refreshes its
+single-run thread. Refresh clears the messages the user sees *and* the stored
+turns behind them (`clear_chat_history(scope_id, user_key)` on the
+`Repository`); without the second half a "cleared" conversation would keep
+steering the next answer through the model's memory. Responses report what
+happened (`{"scope", "scope_id", "cleared", "persisted"}`), an unknown batch is
+a 404, and a database without the chat table reports `persisted: false` instead
+of failing.
+
+Live batch check (real dev DB + real model — three files of one folder):
+
+```
+counts: {'files': 3, 'files_with_a_run': 3, 'analyses': 3, 'findings': 3, 'features': 6}
+files: Riyadh-street/5.geojson  (layer roads, 0 errors, score 100.0)
+       Riyadh-street/6.geojson  (layer roads, 2 errors, score 0.0)
+       Riyadh-street/7.geojson  (layer roads, 1 error,  score 50.0)
+feature keys: 'Riyadh-street/5.geojson#1', '…/6.geojson#1', '…/7.geojson#2'  (namespaced per file)
+context: 46,833 chars, truncated: false
+
+Q: Which file has the most errors?
+A: "…Riyadh-street/6.geojson, with 2 errors (both medium-severity Duplicate Roads
+   findings). The other two files: Riyadh-street/7.geojson has 1 error (a critical
+   Missing Geometry finding), and Riyadh-street/5.geojson has 0 errors (compliance
+   score 100.0)."
+
+Q: Summarise the whole folder.
+A: per-file breakdown with measurements (e.g. "length 14734.058284410537 m",
+   "geometry_type, srid, vertex_count, centroid, bbox, length_m and area_m2 are all
+   null"), per-file remediation (3 pending human review, 0 auto-fixed) and a priority
+   order for the folder.
+
+Q: Are there any files with no errors at all?
+A: "Yes — one file in this batch is clean: Riyadh-street/5.geojson, with 0 errors and
+   a compliance score of 100.0 (2 features analyzed, no findings)."
+```
+
 Real per-finding generation (same DB/run, group `(roads, RD002)`, feature 2):
 
 ```
@@ -128,7 +234,8 @@ roads table was reloaded) get an empty context and the model says exactly that
 
 ## Tests
 
-`agent/tests/test_analysis_retrieval.py` (25 cases, chat/retrieval) and the
+`agent/tests/test_analysis_retrieval.py` (25 cases, chat/retrieval),
+`agent/tests/test_batch_chat.py` (26 cases, folder/batch scope + chat refresh) and the
 "complete feature records feeding the generation path" section of
 `agent/tests/test_analysis.py` (6 cases: prompt completeness, template citation,
 LLM citation, bounded prompt for complex geometry, light-context fallback,

@@ -214,44 +214,83 @@ class PostgresRepository(Repository):
             out[str(d.pop("feature_id"))] = d
         return out
 
-    # ── reads: the COMPLETE stored analysis for a run ─────────────────────
-    def fetch_analysis_records(self, run_id: str) -> list[dict]:
-        """The WHOLE saved analysis payload(s) for a run.
-
-        Read public.saved_analyses.result_payload (JSONB) for the
-        analysis whose stored run_id matches, and return the complete object
-        under ``result`` — every key the pipeline saved, nothing extracted.
-        Best-effort: an older DB without the table (or a payload that is not
-        JSON) yields [] instead of breaking chat.
-        """
-        sql = """
-        SELECT analysis_id::text AS analysis_id,
+    # ── reads: the COMPLETE stored analysis for a run / upload batch ──────
+    # Current select is batch-aware (batch_id + run_id); the legacy select keeps
+    # working on a database where ensure_app_tables() has not added the batch_id
+    # column yet, so retrieval never regresses to "unavailable".
+    _ANALYSIS_RECORD_COLUMNS = """
+               analysis_id::text AS analysis_id,
                user_id::text    AS user_id,
                filename, analysis_type, status,
                compliance_score, total_errors,
                created_at::text AS created_at,
+               batch_id::text   AS batch_id,
+               result_payload->>'run_id' AS run_id,
                result_payload
-        FROM public.saved_analyses
-        WHERE result_payload->>'run_id' = :run_id
-        ORDER BY created_at ASC
+    """
+    _LEGACY_ANALYSIS_RECORD_COLUMNS = """
+               analysis_id::text AS analysis_id,
+               user_id::text    AS user_id,
+               filename, analysis_type, status,
+               compliance_score, total_errors,
+               created_at::text AS created_at,
+               result_payload->>'run_id' AS run_id,
+               result_payload
+    """
+
+    def _analysis_records(self, where_sql: str, params: dict) -> list[dict]:
+        """Complete saved-analysis rows for one WHERE clause, whole payloads.
+
+        Tries the batch-aware select first, then the legacy one, so an
+        un-migrated database still answers (without batch information) and an
+        unknown batch id simply yields [] instead of an error.
         """
-        try:
-            with self.readonly_engine.connect() as conn:
-                rows = conn.execute(text(sql), {"run_id": run_id}).mappings().all()
-        except Exception:
-            return []      # saved_analyses absent -> data reported unavailable
-        out = []
-        for r in rows:
-            d = dict(r)
-            payload = d.pop("result_payload", None)
-            if isinstance(payload, str):
-                try:
-                    payload = json.loads(payload)
-                except (TypeError, ValueError):
-                    payload = {"unparsed_payload": payload}
-            d["result"] = payload if isinstance(payload, dict) else {"payload": payload}
-            out.append(d)
-        return out
+        for columns in (self._ANALYSIS_RECORD_COLUMNS,
+                        self._LEGACY_ANALYSIS_RECORD_COLUMNS):
+            sql = (f"SELECT {columns} FROM public.saved_analyses "
+                   f"WHERE {where_sql} ORDER BY created_at ASC")
+            try:
+                with self.readonly_engine.connect() as conn:
+                    rows = conn.execute(text(sql), params).mappings().all()
+            except Exception:
+                continue        # missing column/table -> try the legacy select
+            out = []
+            for r in rows:
+                d = dict(r)
+                payload = d.pop("result_payload", None)
+                if isinstance(payload, str):
+                    try:
+                        payload = json.loads(payload)
+                    except (TypeError, ValueError):
+                        payload = {"unparsed_payload": payload}
+                d["result"] = (payload if isinstance(payload, dict)
+                               else {"payload": payload})
+                d.setdefault("batch_id", None)
+                out.append(d)
+            return out
+        return []
+
+    def fetch_analysis_records(self, run_id: str) -> list[dict]:
+        """The WHOLE saved analysis payload(s) for a run.
+
+        Returns the complete ``result_payload`` object under ``result`` — every
+        key the pipeline saved, nothing extracted — plus the analysis metadata
+        (including batch_id/run_id when the database has them). Best-effort: an
+        older DB (or a payload that is not JSON) yields [] instead of breaking
+        chat.
+        """
+        return self._analysis_records("result_payload->>'run_id' = :run_id",
+                                      {"run_id": run_id})
+
+    def fetch_analysis_records_by_batch(self, batch_id: str) -> list[dict]:
+        """The complete saved analysis payload(s) for an upload batch.
+
+        One upload selection (folder / multi-file pick) stores every file's
+        analysis with the same ``batch_id``; this returns them all, whole
+        payloads, oldest first. Unknown batch or un-batched database -> [].
+        """
+        return self._analysis_records("batch_id::text = :batch_id",
+                                      {"batch_id": batch_id})
 
     def fetch_feature_records(self, layer_name: str,
                               feature_ids: list[str]) -> dict[str, dict]:
@@ -587,6 +626,56 @@ class PostgresRepository(Repository):
         d["counts"] = json.loads(counts) if isinstance(counts, str) else (counts or {})
         return d
 
+    def fetch_recent_upload_batches(self, viewer: Optional[dict] = None,
+                                    limit: int = 20) -> dict:
+        """The caller's own recent uploads (see Repository for the contract).
+
+        One row per upload selection: how many files it contained, their names,
+        the upload time and the stored error total. Newest first. The visibility
+        clause mirrors require_batch_access, so a caller only ever sees their own
+        uploads (or their team's, when they manage/lead that team).
+        """
+        viewer = viewer or {}
+        user_id = viewer.get("user_id")
+        team_id = viewer.get("team_id")
+        is_manager = bool(viewer.get("role") in ("manager", "leader"))
+        if not user_id:
+            return {}
+        scope = "(user_id = :user_id OR (:is_manager AND team_id = :team_id))"
+        params = {"user_id": user_id, "team_id": team_id,
+                  "is_manager": is_manager, "limit": limit}
+        uploads_sql = f"""
+        SELECT batch_id::text AS batch_id,
+               count(*) AS files,
+               max(created_at) AS uploaded_at,
+               sum(coalesce(total_errors, 0)) AS total_errors,
+               array_agg(coalesce(filename, result_payload->>'filename')
+                         ORDER BY created_at) AS filenames,
+               array_agg(DISTINCT result_payload->>'layer_name') AS layers
+        FROM public.saved_analyses
+        WHERE batch_id IS NOT NULL AND {scope}
+        GROUP BY batch_id
+        ORDER BY max(created_at) DESC
+        LIMIT :limit
+        """
+        with self.engine.connect() as conn:
+            rows = conn.execute(text(uploads_sql), params).mappings().all()
+            unbatched = conn.execute(text(f"""
+                SELECT count(*)::int FROM public.saved_analyses
+                WHERE batch_id IS NULL AND {scope}
+            """), params).scalar()
+        uploads = []
+        for r in rows:
+            d = dict(r)
+            d["filenames"] = [f for f in (d.get("filenames") or []) if f]
+            d["layers"] = [lay for lay in (d.get("layers") or []) if lay]
+            if d.get("uploaded_at") is not None:
+                d["uploaded_at"] = str(d["uploaded_at"])
+            uploads.append(d)
+        return {"uploads": uploads,
+                "unbatched_analyses": int(unbatched or 0),
+                "total_uploads": len(uploads)}
+
     # ── chat memory (conversation turns per user + run) ───────────────────
     def save_chat_turn(self, run_id: str, user_key: str, question: str,
                        answer: str, sources: Optional[list[str]] = None) -> bool:
@@ -629,3 +718,19 @@ class PostgresRepository(Repository):
             d["sources"] = json.loads(src) if isinstance(src, str) else (src or [])
             out.append(d)
         return out
+
+    def clear_chat_history(self, run_id: str, user_key: str) -> int:
+        """Delete this conversation's stored turns; returns the count.
+
+        Scoped to (run_id, user_key) — run_id is the chat scope, i.e. a run id
+        OR an upload batch id — so clearing one thread never touches another
+        user's, or another file's, conversation.
+        """
+        sql = """
+        DELETE FROM public.agent_chat_messages
+        WHERE run_id = :run_id AND user_key = :user_key
+        """
+        with self.engine.begin() as conn:
+            result = conn.execute(
+                text(sql), {"run_id": run_id, "user_key": user_key})
+            return int(result.rowcount or 0)

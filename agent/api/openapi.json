@@ -3,7 +3,7 @@
   "info": {
     "title": "Meyaar Error Analysis Agent API",
     "description": "Agentic interpretation layer on top of the PostGIS rule engine.",
-    "version": "0.4.0"
+    "version": "0.7.0"
   },
   "paths": {
     "/api/validation/{run_id}/analyze": {
@@ -190,7 +190,7 @@
           "validation-analysis"
         ],
         "summary": "Ask a grounded question about a run's engine results",
-        "description": "Chat endpoint: answers from the run's stored analyses + summary only.\n\nRequires an LLM key (MEYAAR_LLM_API_KEY) — analysis endpoints work\nwithout one, chat does not.",
+        "description": "Chat endpoint: answers from the run's stored analyses + summary only.\n\nRequires an LLM key (MEYAAR_LLM_API_KEY) \u2014 analysis endpoints work\nwithout one, chat does not.",
         "operationId": "chat_about_run_api_validation__run_id__chat_post",
         "parameters": [
           {
@@ -252,6 +252,67 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "validation-analysis"
+        ],
+        "summary": "Forget a run conversation (chat refresh)",
+        "description": "Delete the stored turns of this user's conversation about one run.\n\nThe single-file counterpart of the batch refresh: it is used when the current\nanalysis has no upload batch, so a lone uploaded file is refreshed the same way.",
+        "operationId": "reset_run_chat_api_validation__run_id__chat_delete",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid4",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResetResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation run not found."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/validation/{run_id}/record": {
@@ -285,6 +346,200 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/batch/{batch_id}": {
+      "get": {
+        "tags": [
+          "validation-analysis"
+        ],
+        "summary": "Retrieve the COMPLETE analysis data for an upload batch (folder)",
+        "description": "The unfiltered, merged dataset for ONE UPLOAD BATCH.\n\nEvery analysis produced by one upload selection (a folder or multi-file\npick) shares a batch_id. This returns them merged: a per-file summary\n(filename, layer, stored error count, compliance score, run), all findings,\nall agent analyses, every stored payload and every feature record\n(namespaced \"<filename>#<feature_id>\"), plus the index of every field name.\nAccess is all-or-nothing: a batch containing an analysis the caller cannot\nsee is reported as not found.",
+        "operationId": "get_batch_analysis_api_analyses_batch__batch_id__get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid4",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/batch/{batch_id}/chat": {
+      "post": {
+        "tags": [
+          "validation-analysis"
+        ],
+        "summary": "Ask a grounded question about an upload batch (all files)",
+        "description": "Chat across every file of one upload selection.\n\nAnswers come from the merged batch dataset only (per-file numbers, findings,\nanalyses, payloads, feature records); citations are filtered to findings that\nexist in that context. Memory is keyed on the batch id, so follow-ups keep\ntheir thread \u2014 separately from each single-run conversation.",
+        "operationId": "chat_about_batch_api_analyses_batch__batch_id__chat_post",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid4",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "validation-analysis"
+        ],
+        "summary": "Forget a batch conversation (chat refresh)",
+        "description": "Delete the stored turns of this user's conversation about the upload batch.\n\nThis is what the chat's refresh button calls: the frontend drops the messages\nit shows, and this drops the turns the model would otherwise still read, so a\nrefreshed chat starts genuinely clean. Scoped to the caller, so clearing never\ntouches another user's thread.",
+        "operationId": "reset_batch_chat_api_analyses_batch__batch_id__chat_delete",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid4",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResetResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Analysis batch not found."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/uploads/recent": {
+      "get": {
+        "tags": [
+          "validation-analysis"
+        ],
+        "summary": "The caller's own recent uploads (one entry per upload)",
+        "description": "List the CALLER'S OWN recent uploads, newest first.\n\nOne entry per upload selection (a folder or a multi-file pick): how many\nfiles it contained, their names, when it was uploaded and its stored error\ntotal. This is the data the agent uses for questions about other uploads\n(\"how many files was the previous batch?\"); other users' uploads are never\nincluded, and team uploads only for a manager/leader of that team.",
+        "operationId": "recent_uploads_api_uploads_recent_get",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecentUploadsResponse"
+                }
               }
             }
           },
@@ -784,6 +1039,115 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "ChatResetResponse": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "description": "'run' or 'batch' - which conversation was cleared."
+          },
+          "scope_id": {
+            "type": "string",
+            "title": "Scope Id",
+            "description": "The run id or upload batch id that was cleared."
+          },
+          "cleared": {
+            "type": "integer",
+            "title": "Cleared",
+            "description": "How many stored turns were removed."
+          },
+          "persisted": {
+            "type": "boolean",
+            "title": "Persisted",
+            "default": true,
+            "description": "False when the database has no chat table (the conversation was never stored)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope",
+          "scope_id",
+          "cleared"
+        ],
+        "title": "ChatResetResponse",
+        "description": "Result of clearing one conversation's memory (the chat refresh action)."
+      },
+      "RecentUploadsResponse": {
+        "type": "object",
+        "title": "RecentUploadsResponse",
+        "description": "The caller's own recent uploads (one entry per upload selection), used by the chat to answer questions about OTHER uploads. Never contains another user's uploads.",
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "False when the caller has no upload history."
+          },
+          "uploads": {
+            "type": "array",
+            "description": "Newest first.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "batch_id": {
+                  "type": "string"
+                },
+                "uploaded_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "files": {
+                  "type": "integer",
+                  "description": "Exact file count of that upload selection."
+                },
+                "filenames": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "filenames_truncated": {
+                  "type": "integer"
+                },
+                "total_errors": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "layers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "is_current": {
+                  "type": "boolean",
+                  "description": "Marks the upload being discussed."
+                }
+              },
+              "required": [
+                "batch_id",
+                "files"
+              ]
+            }
+          },
+          "unbatched_analyses": {
+            "type": "integer",
+            "description": "Older analyses saved before uploads were grouped."
+          },
+          "total_uploads": {
+            "type": "integer"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "uploads"
+        ]
       }
     }
   }
