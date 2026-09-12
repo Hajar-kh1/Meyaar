@@ -2,10 +2,13 @@
 -- MEYAAR — AGENT CHAT MEMORY (conversation history per run/user)
 -- Owned by: Agentic AI role (agent/)
 --
--- One row per chat turn (question -> answer) about a validation run,
--- scoped to the authenticated user (user_key) so each user's thread is
--- private and the UI needs no session plumbing: the backend keys on
--- (run_id, user_key) automatically.
+-- One row per chat turn (question -> answer) about a validation run OR an
+-- upload batch (a folder / multi-file selection), scoped to the authenticated
+-- user (user_key) so each user's thread is private and the UI needs no session
+-- plumbing: the backend keys on (run_id, user_key) automatically.
+-- run_id holds the CHAT SCOPE: a validation run id for single-run chat, or the
+-- batch id for folder chat (agent/chat.py::answer_batch_question), so the two
+-- conversations never mix.
 --
 -- The chat service (agent/chat.py) reads the last N turns for a
 -- (run_id, user_key) before answering and injects them into the prompt

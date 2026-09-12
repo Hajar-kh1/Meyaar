@@ -88,6 +88,39 @@ class Repository(ABC):
         """
         return []
 
+    def fetch_analysis_records_by_batch(self, batch_id: str) -> list[dict]:
+        """The complete saved analysis payload(s) for an upload BATCH.
+
+        A batch is the set of files one upload selection produced (a folder or a
+        multi-file pick), grouped by ``saved_analyses.batch_id``. Same contract
+        as ``fetch_analysis_records``: whole payloads, every key, ordered by
+        creation. Best-effort default is [] — a backend without batches (or an
+        unknown batch id) reports nothing instead of failing.
+        """
+        return []
+
+    def fetch_recent_upload_batches(self, viewer: Optional[dict] = None,
+                                    limit: int = 20) -> dict:
+        """The CALLER'S OWN recent uploads, one entry per upload batch.
+
+        An "upload" is one selection in the UI (a folder or a multi-file pick),
+        which shares one batch id. This is what lets the agent answer questions
+        about uploads OTHER than the one being discussed ("how many files was
+        the previous batch?", "compare this batch with my last one") without
+        ever seeing another user's data:
+
+            {"uploads": [{"batch_id", "uploaded_at", "files", "filenames",
+                          "total_errors", "layers"}, ...],   # newest first
+             "unbatched_analyses": <int>,   # older, never grouped into a batch
+             "total_uploads": <int>}
+
+        Visibility matches ``require_batch_access``: the caller's own uploads,
+        plus team uploads when the caller is a manager/leader of that team. A
+        viewer with no identity gets nothing. Best-effort default is {} (no
+        upload history available).
+        """
+        return {}
+
     def fetch_feature_records(self, layer_name: str,
                               feature_ids: list[str]) -> dict[str, dict]:
         """COMPLETE record per requested feature, keyed by feature_id.
@@ -158,6 +191,15 @@ class Repository(ABC):
         """Return the most recent chat turns for a (run_id, user_key)
         conversation in chronological order:
         [{question, answer, sources, created_at}, ...] (oldest first)."""
+
+    @abstractmethod
+    def clear_chat_history(self, run_id: str, user_key: str) -> int:
+        """Delete every stored turn of one (run_id, user_key) conversation
+        and return how many turns were removed.
+
+        Used by the chat "refresh" action: a conversation the user cleared
+        must not keep steering later answers through the model's memory.
+        """
 
 
     # ── summary helpers ──────────────────────────────────────────────────

@@ -45,6 +45,10 @@ class VisionAnalysisResponse(BaseModel):
     compliance_score: float = 100.0
     model_status: str = "completed"
     analysis_id: str | None = None
+    # Upload batch: the analyses produced by one upload selection (folder or
+    # multi-file pick) share a batch_id, so the agent can answer questions about
+    # the whole selection instead of one file at a time.
+    batch_id: str | None = None
 
 
 class MapElementSuggestionRequest(BaseModel):
@@ -106,6 +110,8 @@ class VectorProcessingResponse(BaseModel):
     )
     fixed_layer_geojson: dict[str, Any] | None = None
     analysis_id: str | None = None
+    # Upload batch id (see VisionAnalysisResponse.batch_id).
+    batch_id: str | None = None
 
 
 class ErrorReviewUpdate(BaseModel):

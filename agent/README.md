@@ -121,6 +121,14 @@ All tools are plain typed callables against the injected `Repository`
 9. `list_analysis_fields(run_id)` — index of every field name available for the
    run (example value + where it was found), used to map a question's wording
    onto the project's real field names
+10. `get_batch_analysis_record(batch_id)` — the COMPLETE data for one upload
+   BATCH (a folder / multi-file selection): per-file summary + all findings,
+   analyses, payloads and per-file feature records (docs/ANALYSIS_RETRIEVAL.md)
+11. `get_recent_uploads(user_id, team_id?, role?, current_scope_id?, limit?)` —
+   the CALLER'S OWN recent uploads, newest first (batch id, upload time, exact
+   file count, file names, error total; the upload in discussion marked
+   `is_current`) so the agent can answer about EARLIER uploads ("how many files
+   was the previous batch?") without ever seeing another user's data
 
 ## Package layout
 

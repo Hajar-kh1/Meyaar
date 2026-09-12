@@ -7,7 +7,7 @@ Four layers of testing, from zero-dependency to full live system.
 ```bash
 cd ~/Desktop/tuwiq-capstone/Meyaar
 MEYAAR_ALLOW_LLM=false uv run pytest agent/tests -q
-# expect: 160 passed
+# expect: 204 passed
 ```
 
 Runs against an in-memory repository + stub LLMs. Covers:
@@ -22,7 +22,9 @@ Runs against an in-memory repository + stub LLMs. Covers:
 | test_chat.py | grounded answers, source filtering (fake ids dropped), requires LLM; chat context includes the remediation audit (counts + items) and still works when the audit table is missing; conversation memory: turns persisted per (user, run), replayed into the next prompt, trimmed to the recent window, best-effort when the memory table is missing, failed answers not persisted |
 | test_orchestrator.py | deterministic upload routing: vector/image by extension (case-insensitive), image magic bytes beat mislabelled extensions, TIFF both endiannesses, JSON-text → vector; delegation to the vector/vision pipelines (stubbed) with args forwarded, inspect-then-vision order, unsupported raises, pipeline errors propagate |
 | test_analysis_retrieval.py | COMPLETE analysis retrieval (docs/ANALYSIS_RETRIEVAL.md): the whole saved payload reaches the context/prompt with every key (nothing whitelisted, incl. a field added after this code), every feature attribute + measurement is retrieved, questions about street length/width, building length+width, plot dimensions, several properties at once, coordinates/counts and broad "all the analysis information" / "everything about the building" are answered from the stored values, a missing value is reported as unavailable (never invented), a clean run's payload-referenced features are still measured, retrieval stays isolated per run, the saved-analysis store missing degrades gracefully, and GET /validation/{run_id}/record returns the complete dataset |
+| test_recent_uploads.py | cross-upload questions ("how many files was the previous batch?"): the context carries the CALLER'S OWN recent uploads newest first (exact file count, names, upload time, error total) with the upload in discussion marked is_current — so "the previous batch" is the entry right after it; answered from folder chat AND single-file chat; bounded list (count exact even when names truncate) and limit honoured; per-user isolation (another user's uploads and Bob's pre-grouping analyses never appear in the list OR in the prompt) and team visibility (manager/leader yes, member no); no identity / no upload history / an upload outside the list all report "not available" instead of inventing; GET /api/uploads/recent; `get_recent_uploads` tool; BATCH_CURRENT/BATCH_OLD fixture ordering |
 | test_api.py | POST analyze, GET analysis (404 before analyze), GET remediation, malformed UUID 422, narrative in analysis summary, chat endpoint persists conversation memory scoped to the authenticated user |
+| test_batch_chat.py | upload BATCH chat (folder / multi-file selection) **and chat refresh**: the merged context carries every file of the selection with its stored numbers, all findings/analyses/payloads (tagged with their source file) and per-file namespaced feature records; cross-file questions ("which file has the most errors?", "summarise the folder", "which files are clean?") are answered from the stored values; a file without a run is reported as such; memory is keyed on the batch id (separate from each run's thread) and citations stay filtered; batches are isolated from each other; GET/POST /api/analyses/batch/{batch_id}[…/chat] (404 unknown batch, 422 malformed id); refresh (`clear_chat_history` + DELETE …/chat) clears the stored turns so a cleared conversation cannot leak back into the next answer, and it is scoped to one user + one scope; a single uploaded file is a batch of one (26 cases) |
 
 Run one file: `... -m pytest agent/tests/test_analysis.py -q`
 Run one case: `... -m pytest agent/tests/test_analysis.py::test_heuristic_rows_are_candidates_and_persisted`
@@ -115,6 +117,41 @@ curl http://127.0.0.1:8000/api/validation/<run_id>/record
 #    vertex_count, centroid, bbox, geometry}}, findings[], analyses[],
 #  available_fields{<field name>: {example, type, found_in}}, counts}
 #  (docs/ANALYSIS_RETRIEVAL.md)
+
+# Upload batch (a folder / multi-file selection): every file of one upload
+# selection shares a batch_id (returned by the upload endpoints as batch_id).
+curl http://127.0.0.1:8000/api/analyses/batch/<batch_id>
+# {batch_id, files[{filename, layer_name, total_errors, compliance_score, run_id,
+#   status, analyzed, findings}], findings[], analyses[], analysis_records[],
+#   feature_data{"<filename>#<feature_id>": {...}}, available_fields, counts,
+#   notes, remediation{by_file, items}}
+
+curl -X POST http://127.0.0.1:8000/api/analyses/batch/<batch_id>/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question": "which file has the most errors?"}'
+# answers across the whole selection (memory is keyed on the batch id, separate
+# from each single-run conversation)
+
+# Chat refresh: the frontend's one refresh button clears the visible messages
+# AND the stored turns behind them, so the next answer cannot lean on a
+# conversation the user cleared (same scope rules: batch id, else run id).
+curl -X DELETE http://127.0.0.1:8000/api/analyses/batch/<batch_id>/chat
+curl -X DELETE http://127.0.0.1:8000/api/validation/<run_id>/chat
+# {"scope": "batch"|"run", "scope_id": "<id>", "cleared": <turns removed>,
+#  "persisted": true}   -> 404 for an unknown batch, 422 for a malformed id
+
+# The caller's OWN recent uploads (newest first, one entry per upload
+# selection): what the chat uses to answer "how many files was the previous
+# batch?" / "which of my uploads had the most errors?". Never another user's
+# uploads; team uploads only for a manager/leader of that team.
+curl http://127.0.0.1:8000/api/uploads/recent
+# {available, uploads[{batch_id, uploaded_at, files, filenames, total_errors,
+#   layers, is_current}], unbatched_analyses, total_uploads, note}
+
+# CLI equivalent (run-scoped by default; --user-id adds that user's own uploads
+# so questions about EARLIER uploads work from the terminal too):
+uv run python -m agent.cli chat <run_id> --user-id <app_users.user_id> \
+  --ask "how many files was the previous batch?"
 ```
 
 OpenAPI docs: http://127.0.0.1:8000/docs

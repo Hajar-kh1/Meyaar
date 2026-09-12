@@ -339,20 +339,24 @@ def available_fields(dataset: dict) -> dict[str, dict]:
 
 def build_analysis_dataset(repo: Repository, run_id: str,
                            results: Optional[Sequence[ValidationResult]] = None,
-                           analyses: Optional[Sequence[ErrorAnalysis]] = None
+                           analyses: Optional[Sequence[ErrorAnalysis]] = None,
+                           records: Optional[Sequence[dict]] = None
                            ) -> dict:
     """Everything Meyaar stored for one analysis, unfiltered.
 
     Returns ``{run_id, analyses, findings, analysis_records, feature_data,
-    available_fields, counts, truncation}``. ``results`` / ``analyses`` may be
-    passed in when the caller already fetched them (avoids a second query).
+    available_fields, counts, truncation}``. ``results`` / ``analyses`` /
+    ``records`` may be passed in when the caller already fetched them (avoids
+    duplicate queries — used by the batch builder).
     """
     results = list(results) if results is not None else (
         _safe(repo.fetch_results, run_id) or [])
     analyses = list(analyses) if analyses is not None else (
         _safe(repo.fetch_analyses, run_id) or [])
 
-    raw_records = _safe(repo.fetch_analysis_records, run_id) or []
+    raw_records = ([dict(r) for r in records if isinstance(r, dict)]
+                   if records is not None
+                   else (_safe(repo.fetch_analysis_records, run_id) or []))
     records = [dict(r) for r in raw_records[:MAX_ANALYSIS_RECORDS]
                if isinstance(r, dict)]
     feature_data, omitted_features = _collect_feature_data(repo, results, analyses,
@@ -380,3 +384,165 @@ def build_analysis_dataset(repo: Repository, run_id: str,
         dataset["truncation"] = truncation
     dataset["available_fields"] = available_fields(dataset)
     return dataset
+
+
+# ── upload BATCH (folder / multi-file selection) ────────────────────────────
+MAX_BATCH_RUNS = 25
+
+LIVE_LAYER_NOTE = (
+    "Per-file analysis_records, findings and analyses are that run's immutable "
+    "stored record. feature_data records are read from the LIVE layer tables, "
+    "which hold only the most recently uploaded file's features, so a feature "
+    "record describes the current layer state rather than a historical snapshot.")
+
+
+def build_batch_analysis_dataset(repo: Repository, batch_id: str) -> dict:
+    """Everything Meyaar stored for an upload BATCH (a folder / multi-file pick).
+
+    Merges the per-file complete datasets into one record the chat can answer
+    from: a ``files`` summary (one entry per file: stored errors, compliance
+    score, layer and run), every finding, every agent analysis, every stored
+    payload, and every feature record — namespaced ``"<filename>#<feature_id>"``
+    so two files with the same feature id can never collide — plus a
+    dynamically derived field index. Nothing is whitelisted.
+    """
+    fetcher = getattr(repo, "fetch_analysis_records_by_batch", None)
+    raw = (_safe(fetcher, batch_id) or []) if callable(fetcher) else []
+    records = [dict(r) for r in raw[:MAX_ANALYSIS_RECORDS] if isinstance(r, dict)]
+
+    files: list[dict] = []
+    analyses: list[dict] = []
+    findings: list[dict] = []
+    merged_records: list[dict] = []
+    feature_data: dict[str, dict] = {}
+    without_run = 0
+
+    for record in records[:MAX_BATCH_RUNS]:
+        payload = record.get("result") if isinstance(record.get("result"), dict) else {}
+        run_id = record.get("run_id") or payload.get("run_id")
+        filename = record.get("filename") or payload.get("filename")
+        entry = {
+            "filename": filename,
+            "analysis_id": record.get("analysis_id"),
+            "run_id": str(run_id) if run_id else None,
+            "layer_name": payload.get("layer_name"),
+            "status": record.get("status") or payload.get("status"),
+            "compliance_score": record.get("compliance_score",
+                                           payload.get("compliance_score")),
+            "total_errors": record.get("total_errors", payload.get("total_errors")),
+            "created_at": record.get("created_at"),
+            "analyzed": 0,
+            "findings": 0,
+        }
+        merged_records.append({**record, "batch_id": batch_id})
+        if not run_id:
+            without_run += 1          # e.g. a map image: no validation run
+            files.append(entry)
+            continue
+
+        dataset = build_analysis_dataset(repo, str(run_id), records=[record])
+        entry["analyzed"] = len(dataset["analyses"])
+        entry["findings"] = len(dataset["findings"])
+        for analysis in dataset["analyses"]:
+            analyses.append({**analysis, "source_file": filename,
+                             "source_run_id": str(run_id)})
+        for finding in dataset["findings"]:
+            findings.append({**finding, "source_file": filename,
+                             "source_run_id": str(run_id)})
+        for fid, feature in dataset["feature_data"].items():
+            if len(feature_data) >= MAX_FEATURE_RECORDS:
+                break
+            feature_data[f"{filename}#{fid}"] = {
+                **feature, "feature_id": fid, "source_file": filename,
+                "source_run_id": str(run_id)}
+        files.append(entry)
+
+    dataset = {
+        "batch_id": batch_id,
+        "files": files,
+        "analyses": analyses,
+        "findings": findings,
+        "analysis_records": merged_records,
+        "feature_data": feature_data,
+        "counts": {
+            "files": len(files),
+            "files_with_a_run": len(files) - without_run,
+            "analyses": len(analyses),
+            "findings": len(findings),
+            "features": len(feature_data),
+        },
+        "notes": [LIVE_LAYER_NOTE],
+    }
+    if len(raw) > len(records):
+        dataset["truncation"] = {"files_omitted": len(raw) - len(records)}
+    dataset["available_fields"] = available_fields(dataset)
+    return dataset
+
+
+# ── the caller's other uploads (cross-upload questions) ─────────────────────
+MAX_RECENT_UPLOADS = 10        # uploads listed in the chat context
+MAX_RECENT_FILENAMES = 12      # file names kept per upload (the count stays exact)
+
+RECENT_UPLOADS_NOTE = (
+    "These are the caller's own recent uploads, newest first; 'files' is how "
+    "many files that one upload selection contained and 'filenames' lists them "
+    "(truncated names still have the exact count in 'files'). The upload being "
+    "discussed now is marked \"is_current\": \"the previous batch\", \"my last "
+    "upload\" and 'the one before' mean the entry listed AFTER it in this list. "
+    "Use these entries for questions about other uploads ('how many files was "
+    "the previous batch?', 'compare this batch with the last one', 'which of my "
+    "uploads had the most errors?') and state their numbers exactly as listed. "
+    "Uploads not listed here — including other users' uploads, which are never "
+    "listed — are not available; say so instead of guessing. "
+    "'unbatched_analyses' counts older analyses saved before uploads were "
+    "grouped; they are individual files, not batches.")
+
+
+def recent_uploads_summary(repo: Repository, viewer: Optional[dict] = None,
+                           current_scope_id: Optional[str] = None,
+                           limit: int = MAX_RECENT_UPLOADS) -> dict:
+    """The caller's recent uploads, shaped for the chat prompt.
+
+    Only the caller's own uploads (or their team's, if they manage/lead it) are
+    ever included — see Repository.fetch_recent_upload_batches. Bounded by
+    ``limit`` uploads and ``MAX_RECENT_FILENAMES`` names each, because a chat
+    prompt must stay affordable; the per-upload file COUNT is always exact, so
+    "how many files was the previous batch?" is answered from the real number.
+    Returns {"available": False, ...} when there is no upload history to show.
+    """
+    data = _safe(repo.fetch_recent_upload_batches, viewer, limit) or {}
+    raw_uploads = data.get("uploads")
+    uploads: list[dict] = []
+    for row in (raw_uploads or [])[:limit]:
+        if not isinstance(row, dict):
+            continue
+        names = [str(n) for n in (row.get("filenames") or []) if n]
+        entry = {
+            "batch_id": str(row.get("batch_id")),
+            "uploaded_at": row.get("uploaded_at"),
+            "files": int(row.get("files") or len(names)),
+            "filenames": names[:MAX_RECENT_FILENAMES],
+            "total_errors": row.get("total_errors"),
+        }
+        if len(names) > MAX_RECENT_FILENAMES:
+            entry["filenames_truncated"] = len(names) - MAX_RECENT_FILENAMES
+        layers = [str(l) for l in (row.get("layers") or []) if l]
+        if layers:
+            entry["layers"] = layers
+        if current_scope_id and entry["batch_id"] == str(current_scope_id):
+            entry["is_current"] = True
+        uploads.append(entry)
+
+    unbatched = int(data.get("unbatched_analyses") or 0)
+    summary = {
+        "available": bool(uploads or unbatched or data.get("total_uploads")),
+        "uploads": uploads,
+        "unbatched_analyses": unbatched,
+        "total_uploads": int(data.get("total_uploads") or len(uploads)),
+        "note": RECENT_UPLOADS_NOTE,
+    }
+    if not uploads:
+        summary["uploads_note"] = (
+            "No earlier uploads are stored for this caller: nothing can be said "
+            "about a previous batch beyond what the current context holds.")
+    return summary

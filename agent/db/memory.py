@@ -120,6 +120,9 @@ class InMemoryRepository(Repository):
             "total_errors": metadata.pop("total_errors",
                                          payload.get("total_errors", 0)),
             "created_at": metadata.pop("created_at", "2026-01-01T00:00:00"),
+            # Upload batch: analyses that came from ONE upload selection share
+            # this id, which is what batch chat is scoped to.
+            "batch_id": metadata.pop("batch_id", None),
             "run_id": run_id,
             "result": dict(payload),
         }
@@ -136,6 +139,75 @@ class InMemoryRepository(Repository):
         with self._lock:
             return [dict(r) for r in self._analysis_records
                     if str(r.get("run_id")) == str(run_id)]
+
+    def fetch_analysis_records_by_batch(self, batch_id: str) -> list[dict]:
+        """Complete stored payload(s) for one upload batch (all keys)."""
+        with self._lock:
+            return [dict(r) for r in self._analysis_records
+                    if str(r.get("batch_id") or "") == str(batch_id)]
+
+    def fetch_recent_upload_batches(self, viewer: Optional[dict] = None,
+                                    limit: int = 20) -> dict:
+        """The caller's own recent uploads (see Repository for the contract).
+
+        Same visibility rule as PostgresRepository: own uploads, plus a team's
+        when the viewer manages/leads it; a viewer without an identity sees
+        nothing.
+        """
+        viewer = viewer or {}
+        user_id = str(viewer.get("user_id") or "")
+        team_id = str(viewer.get("team_id") or "")
+        is_manager = viewer.get("role") in ("manager", "leader")
+        if not user_id:
+            return {}
+        if is_manager and not team_id:
+            return {}
+
+        def visible(record: dict) -> bool:
+            owner = str(record.get("user_id") or "")
+            if owner and owner == user_id:
+                return True
+            return bool(is_manager and team_id
+                        and str(record.get("team_id") or "") == team_id)
+
+        with self._lock:
+            records = [dict(r) for r in self._analysis_records if visible(r)]
+
+        grouped: dict[str, dict] = {}
+        unbatched = 0
+        for record in records:
+            batch_id = record.get("batch_id")
+            if not batch_id:
+                unbatched += 1
+                continue
+            payload = record.get("result") if isinstance(record.get("result"), dict) else {}
+            entry = grouped.setdefault(str(batch_id), {
+                "batch_id": str(batch_id), "files": 0, "uploaded_at": None,
+                "total_errors": 0, "filenames": [], "layers": [],
+                "_order": [],
+            })
+            entry["files"] += 1
+            created = record.get("created_at")
+            entry["_order"].append(created)
+            if created and (entry["uploaded_at"] is None
+                            or str(created) > str(entry["uploaded_at"])):
+                entry["uploaded_at"] = created
+            entry["total_errors"] += int(record.get("total_errors") or 0)
+            name = record.get("filename") or payload.get("filename")
+            if name:
+                entry["filenames"].append(name)
+            layer = payload.get("layer_name")
+            if layer and layer not in entry["layers"]:
+                entry["layers"].append(layer)
+
+        uploads = sorted(grouped.values(),
+                         key=lambda e: str(e.get("uploaded_at") or ""),
+                         reverse=True)[:limit]
+        for entry in uploads:
+            entry["total_errors"] = int(entry["total_errors"])
+            entry.pop("_order", None)
+        return {"uploads": uploads, "unbatched_analyses": unbatched,
+                "total_uploads": len(uploads)}
 
     def fetch_feature_records(self, layer_name: str,
                               feature_ids: list[str]) -> dict[str, dict]:
@@ -241,6 +313,11 @@ class InMemoryRepository(Repository):
         with self._lock:
             turns = self._chat_turns.get((run_id, user_key), [])
             return [dict(t) for t in turns[-limit:]]
+
+    def clear_chat_history(self, run_id: str, user_key: str) -> int:
+        """Drop one conversation's turns from the in-memory store."""
+        with self._lock:
+            return len(self._chat_turns.pop((run_id, user_key), []))
 
 
     @property

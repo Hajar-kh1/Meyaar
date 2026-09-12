@@ -119,6 +119,37 @@ def list_analysis_fields(repo: Repository, run_id: str) -> dict:
     return build_analysis_dataset(repo, run_id).get("available_fields", {})
 
 
+# ── 10. get_batch_analysis_record (folder / multi-file upload) ──────────────
+def get_batch_analysis_record(repo: Repository, batch_id: str) -> dict:
+    """Return the COMPLETE stored data for an UPLOAD BATCH — every analysis one
+    upload selection produced (a folder or multi-file pick), merged: a per-file
+    summary (filename, layer, stored error count, compliance score, run), all
+    findings, all agent analyses, every stored payload and every feature record
+    (namespaced "<filename>#<feature_id>"), plus the index of every field name.
+    Use it for cross-file questions ('which file has the most errors?',
+    'summarise the folder')."""
+    from agent.retrieval import build_batch_analysis_dataset
+    return build_batch_analysis_dataset(repo, batch_id)
+
+
+# ── 11. get_recent_uploads (the caller's other uploads) ─────────────────────
+def get_recent_uploads(repo: Repository, user_id: str,
+                       team_id: Optional[str] = None,
+                       role: Optional[str] = None,
+                       current_scope_id: Optional[str] = None,
+                       limit: int = 10) -> dict:
+    """Return the CALLER'S OWN recent uploads, newest first: one entry per
+    upload selection (batch_id, uploaded_at, files, filenames, total_errors,
+    layers), with the currently discussed upload marked is_current. Use it for
+    questions about other uploads ('how many files was the previous batch?',
+    'compare this batch with my last one'). Other users' uploads are never
+    returned."""
+    from agent.retrieval import recent_uploads_summary
+    viewer = {"user_id": user_id, "team_id": team_id, "role": role}
+    return recent_uploads_summary(repo, viewer,
+                                  current_scope_id=current_scope_id, limit=limit)
+
+
 def _first_line(doc: Optional[str]) -> str:
     return (doc or "").strip().splitlines()[0] if (doc or "").strip() else ""
 
@@ -134,6 +165,8 @@ TOOL_REGISTRY: dict[str, object] = {
     "get_analysis_record": get_analysis_record,
     "get_feature_record": get_feature_record,
     "list_analysis_fields": list_analysis_fields,
+    "get_batch_analysis_record": get_batch_analysis_record,
+    "get_recent_uploads": get_recent_uploads,
 }
 
 
@@ -167,4 +200,10 @@ def tool_descriptions() -> list[dict]:
         {"name": "list_analysis_fields",
          "description": _first_line(list_analysis_fields.__doc__),
          "args": ["run_id"]},
+        {"name": "get_batch_analysis_record",
+         "description": _first_line(get_batch_analysis_record.__doc__),
+         "args": ["batch_id"]},
+        {"name": "get_recent_uploads",
+         "description": _first_line(get_recent_uploads.__doc__),
+         "args": ["user_id", "team_id?", "role?", "current_scope_id?", "limit?"]},
     ]
