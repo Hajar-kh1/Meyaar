@@ -59,7 +59,6 @@ def normalize_dataset(dataset):
         ),
     }
 
-
 def normalize_validation(validation):
     normalized_summary = []
 
@@ -122,9 +121,35 @@ def normalize_validation(validation):
         ),
         "total_findings": total_findings,
         "summary": normalized_summary,
+
+        "quality_before": validation.get(
+            "quality_before",
+            {},
+        ),
+        "quality_after": validation.get(
+            "quality_after",
+            {},
+        ),
+        "quality_improvement": validation.get(
+            "quality_improvement",
+            0.0,
+        ),
+        "validation_before": validation.get(
+            "validation_before",
+            {},
+        ),
+        "validation_after": validation.get(
+            "validation_after",
+        ),
+        "verified_fixes": validation.get(
+            "verified_fixes",
+            [],
+        ),
+        "revalidation_summary": validation.get(
+            "revalidation_summary",
+            {},
+        ),
     }
-
-
 def image_to_data_uri(image_path):
     if not image_path:
         return None
@@ -298,6 +323,121 @@ def build_rule_context(validation):
 
     return "\n".join(lines)
 
+def build_revalidation_context(validation):
+    summary = validation.get(
+        "revalidation_summary",
+        {},
+    )
+
+    verified_fixes = validation.get(
+        "verified_fixes",
+        [],
+    )
+
+    if not summary.get("attempted"):
+        return (
+            "No automatic corrective fixes were applied. "
+            "No re-validation was required."
+        )
+
+    if not summary.get("performed"):
+        return (
+            "Automatic corrective fixes were applied, "
+            "but re-validation did not complete successfully."
+        )
+
+    quality_before = summary.get(
+        "quality_before",
+        0.0,
+    )
+
+    quality_after = summary.get(
+        "quality_after",
+        quality_before,
+    )
+
+    improvement = summary.get(
+        "quality_improvement",
+        0.0,
+    )
+
+    affected_before = summary.get(
+        "affected_features_before",
+        0,
+    )
+
+    affected_after = summary.get(
+        "affected_features_after",
+        affected_before,
+    )
+
+    findings_before = summary.get(
+        "findings_before",
+        0,
+    )
+
+    findings_after = summary.get(
+        "findings_after",
+        findings_before,
+    )
+
+    applied_fixes = summary.get(
+        "applied_fixes",
+        0,
+    )
+
+    resolved_fixes = summary.get(
+        "resolved_fixes",
+        0,
+    )
+
+    unresolved_fixes = summary.get(
+        "unresolved_fixes",
+        0,
+    )
+
+    lines = [
+        "Re-validation was performed after automatic remediation.",
+        f"Quality score before remediation: {quality_before}.",
+        f"Quality score after remediation: {quality_after}.",
+        f"Quality score improvement: {improvement}.",
+        f"Affected features before: {affected_before}.",
+        f"Affected features after: {affected_after}.",
+        f"Findings before: {findings_before}.",
+        f"Findings after: {findings_after}.",
+        f"Applied fixes: {applied_fixes}.",
+        f"Verified resolved fixes: {resolved_fixes}.",
+        f"Verified unresolved fixes: {unresolved_fixes}.",
+    ]
+
+    for item in verified_fixes:
+        feature_id = item.get(
+            "feature_id",
+            "Unknown",
+        )
+
+        rule_id = item.get(
+            "rule_id",
+            "Unknown",
+        )
+
+        resolved = item.get(
+            "resolved"
+        )
+
+        if resolved is True:
+            status = "resolved"
+        elif resolved is False:
+            status = "still present"
+        else:
+            status = "not verified"
+
+        lines.append(
+            f"- Feature {feature_id}, "
+            f"rule {rule_id}: {status}."
+        )
+
+    return "\n".join(lines)
 
 def sanitize_report_language(report):
     replacements = [
@@ -425,6 +565,10 @@ def generate_report_content(
         validation
     )
 
+    revalidation_context = build_revalidation_context(
+        validation
+    )
+
     prompt = f"""
 You are writing concise explanatory text for a Meyaar
 Geospatial Data Quality Assessment Report.
@@ -452,6 +596,10 @@ VALIDATION
 RULES WITH FINDINGS
 
 {rule_context}
+
+REMEDIATION AND RE-VALIDATION
+
+{revalidation_context}
 
 STRICT RULES
 
@@ -508,17 +656,45 @@ STRICT RULES
     investigation, correction after review,
     and re-validation.
 
-19. Do not claim a correction has already occurred.
+19. If remediation information shows that a fix
+    was applied, you may state that the fix was applied.
 
-20. If no actions were taken, say:
+20. Never claim that an applied fix was successful
+    unless verified_fixes or revalidation_summary
+    shows that the finding was resolved.
+
+21. If no automatic corrective fixes were applied,
+    say:
     "No corrective actions were performed on the dataset."
 
-21. If no re-validation occurred, say:
-    "No re-validation was conducted following the initial assessment."
+22. If re-validation was performed, describe only
+    the supplied before and after values.
 
-22. Keep writing concise and professional.
+23. If re-validation was not performed, do not
+    invent a before/after comparison.
 
-23. Return valid JSON only.
+24. Preserve quality scores, finding counts,
+    affected feature counts, and improvement values
+    exactly as supplied.
+
+25. When re-validation is available, the
+    revalidation_improvement section should clearly
+    summarize:
+    - quality score before remediation,
+    - quality score after remediation,
+    - quality improvement,
+    - findings before and after,
+    - affected features before and after,
+    - resolved fixes,
+    - unresolved fixes.
+
+26. The actions_taken section may describe only
+    actions explicitly present in the supplied
+    remediation and re-validation information.
+
+27. Keep writing concise and professional.
+
+28. Return valid JSON only.
 
 Return exactly:
 
@@ -599,7 +775,6 @@ Return exactly:
     return sanitize_report_language(
         report
     )
-
 
 def create_pdf(
     dataset,

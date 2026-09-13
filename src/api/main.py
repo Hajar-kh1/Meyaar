@@ -1,6 +1,8 @@
 import os
 import smtplib
 import json
+from src.geosa_rag.router import router as geosa_router
+from src.intelligence.router import router as intelligence_router
 import io
 import re
 import secrets
@@ -77,7 +79,7 @@ from src.api.vector_pipeline import (
 )
 
 from src.api.routing import detect_input_type
-from src.api.delivery import run_post_inspection_delivery
+from src.api.delivery import run_batch_delivery, run_post_inspection_delivery
 
 
 app = FastAPI(
@@ -89,7 +91,8 @@ app.include_router(
     analysis_router,
     prefix="/api",
 )
-
+app.include_router(geosa_router)
+app.include_router(intelligence_router)
 # The browser uploads large datasets directly to FastAPI so long analyses are
 # not cut off by the Next.js development proxy.
 app.add_middleware(
@@ -927,6 +930,46 @@ async def create_batch_report_pdf(body: BatchReportRequest, user: dict = Depends
     return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": 'attachment; filename="meyaar-selected-analyses.pdf"'})
 
 
+@app.post("/delivery/batch")
+async def deliver_batch_report(body: BatchReportRequest, user: dict = Depends(current_user)):
+    ids = list(dict.fromkeys(body.analysis_ids))
+    if not ids:
+        raise HTTPException(status_code=400, detail="No analyses were provided for batch delivery.")
+
+    with database_engine().begin() as connection:
+        ensure_app_tables(connection)
+        rows = connection.execute(text("""
+            SELECT analysis_id::text AS analysis_id, filename, analysis_type, result_payload
+            FROM public.saved_analyses
+            WHERE analysis_id::text = ANY(:ids)
+              AND ((user_id = :user_id) OR (:is_manager AND team_id = :team_id))
+        """), {
+            "ids": ids,
+            "user_id": user["user_id"],
+            "team_id": user["team_id"],
+            "is_manager": user["role"] in ("manager", "leader"),
+        }).mappings().all()
+
+    by_id = {row["analysis_id"]: row for row in rows}
+    if len(by_id) != len(ids):
+        raise HTTPException(status_code=404, detail="One or more selected analyses were not found.")
+
+    items = [
+        {
+            "filename": by_id[analysis_id]["filename"],
+            "input_type": by_id[analysis_id]["analysis_type"],
+            "result": by_id[analysis_id]["result_payload"],
+        }
+        for analysis_id in ids
+    ]
+
+    return await run_in_threadpool(
+        run_batch_delivery,
+        items,
+        user["email"],
+    )
+
+
 @app.post("/inspect")
 async def inspect_file(
     file: List[UploadFile] = File(...),
@@ -1167,8 +1210,6 @@ async def analyze_uploaded_image(
             detail=str(error),
         ) from error
 
-
-
 MAX_VECTOR_SIZE = 500 * 1024 * 1024
 
 
@@ -1179,10 +1220,15 @@ MAX_VECTOR_SIZE = 500 * 1024 * 1024
 async def process_uploaded_vector(
     file: UploadFile = File(...),
     layer_type: str | None = Form(None),
+    deliver: bool = Form(True),
     user: dict = Depends(current_user),
 ):
     if not user["team_id"]:
-        raise HTTPException(status_code=403, detail="Create or join a team before starting an analysis.")
+        raise HTTPException(
+            status_code=403,
+            detail="Create or join a team before starting an analysis.",
+        )
+
     filename = file.filename or ""
 
     content = await file.read(
@@ -1211,8 +1257,28 @@ async def process_uploaded_vector(
             content,
             layer_type,
         )
-        analysis_id = await run_in_threadpool(save_analysis, user["user_id"], user["team_id"], filename, "vector", result)
+
+        analysis_id = await run_in_threadpool(
+            save_analysis,
+            user["user_id"],
+            user["team_id"],
+            filename,
+            "vector",
+            result,
+        )
+
         result["analysis_id"] = analysis_id
+
+        if deliver:
+            delivery = await run_in_threadpool(
+                run_post_inspection_delivery,
+                filename,
+                "vector",
+                result,
+                user["email"],
+            )
+            result["delivery"] = delivery
+
         return result
 
     except InvalidVectorFileError as error:

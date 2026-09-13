@@ -364,6 +364,206 @@ def _resolve_layer_name(
     )
 
 
+def _finding_key(
+    item: dict,
+) -> tuple[str, str] | None:
+    feature_id = item.get("feature_id")
+    rule_id = item.get("rule_id")
+
+    if (
+        feature_id is None
+        or rule_id is None
+    ):
+        return None
+
+    return (
+        str(feature_id),
+        str(rule_id),
+    )
+
+
+def _build_verified_fixes(
+    remediation: list[dict],
+    validation_before: dict,
+    validation_after: dict | None,
+) -> list[dict]:
+    before_keys = {
+        key
+        for item in validation_before.get(
+            "errors",
+            [],
+        )
+        if (
+            key := _finding_key(item)
+        )
+        is not None
+    }
+
+    after_keys = {
+        key
+        for item in (
+            validation_after
+            or {}
+        ).get(
+            "errors",
+            [],
+        )
+        if (
+            key := _finding_key(item)
+        )
+        is not None
+    }
+
+    verified = []
+
+    for item in remediation:
+        if item.get("status") != "applied":
+            continue
+
+        key = _finding_key(item)
+
+        was_present = (
+            key in before_keys
+            if key is not None
+            else False
+        )
+
+        still_present = (
+            key in after_keys
+            if (
+                key is not None
+                and validation_after
+            )
+            else None
+        )
+
+        verified.append(
+            {
+                "result_id": item.get(
+                    "result_id"
+                ),
+                "feature_id": item.get(
+                    "feature_id"
+                ),
+                "rule_id": item.get(
+                    "rule_id"
+                ),
+                "revalidation_available":
+                    validation_after
+                    is not None,
+                "was_present_before":
+                    was_present,
+                "still_present_after":
+                    still_present,
+                "resolved": (
+                    bool(was_present)
+                    and still_present is False
+                    if validation_after
+                    is not None
+                    else None
+                ),
+            }
+        )
+
+    return verified
+
+
+def _build_revalidation_summary(
+    *,
+    fixes_applied: bool,
+    validation_before: dict,
+    validation_after: dict | None,
+    quality_before: dict,
+    quality_after: dict,
+    verified_fixes: list[dict],
+) -> dict:
+    resolved = sum(
+        1
+        for item in verified_fixes
+        if item.get(
+            "resolved"
+        )
+        is True
+    )
+
+    unresolved = sum(
+        1
+        for item in verified_fixes
+        if item.get(
+            "resolved"
+        )
+        is False
+    )
+
+    return {
+        "attempted": fixes_applied,
+        "performed":
+            validation_after
+            is not None,
+        "before_run_id":
+            validation_before.get(
+                "run_id"
+            ),
+        "after_run_id": (
+            validation_after.get(
+                "run_id"
+            )
+            if validation_after
+            else None
+        ),
+        "quality_before":
+            quality_before.get(
+                "quality_score"
+            ),
+        "quality_after":
+            quality_after.get(
+                "quality_score"
+            ),
+        "quality_improvement":
+            round(
+                quality_after.get(
+                    "quality_score",
+                    0,
+                )
+                - quality_before.get(
+                    "quality_score",
+                    0,
+                ),
+                1,
+            ),
+        "affected_features_before":
+            quality_before.get(
+                "affected_features"
+            ),
+        "affected_features_after":
+            quality_after.get(
+                "affected_features"
+            ),
+        "findings_before":
+            validation_before.get(
+                "total_errors",
+                0,
+            ),
+        "findings_after": (
+            validation_after.get(
+                "total_errors",
+                0,
+            )
+            if validation_after
+            else validation_before.get(
+                "total_errors",
+                0,
+            )
+        ),
+        "applied_fixes":
+            len(verified_fixes),
+        "resolved_fixes":
+            resolved,
+        "unresolved_fixes":
+            unresolved,
+    }
+
+
 def process_vector_upload(
     filename: str,
     content: bytes,
@@ -551,45 +751,110 @@ def process_vector_upload(
             ]
 
             quality_before = quality_score(
-                validation.get("affected_features", 0),
-                insertion.get("inserted_rows", 0),
+                validation.get(
+                    "affected_features",
+                    0,
+                ),
+                insertion.get(
+                    "inserted_rows",
+                    0,
+                ),
             )
 
-            analysis = run_analysis(run_id)
+            analysis = run_analysis(
+                run_id
+            )
 
             fixes_applied = any(
-                item.get("status") == "applied"
-                for item in analysis.get("remediation", [])
+                item.get("status")
+                == "applied"
+                for item in analysis.get(
+                    "remediation",
+                    [],
+                )
             )
 
             validation_after = None
             quality_after = quality_before
+
             if fixes_applied:
-                validation_after = run_rules_for_layer(
-                    engine=engine,
-                    layer_name=layer_name,
+                validation_after = (
+                    run_rules_for_layer(
+                        engine=engine,
+                        layer_name=layer_name,
+                    )
                 )
-                if validation_after.get("status") == "success":
+
+                if (
+                    validation_after.get(
+                        "status"
+                    )
+                    == "success"
+                ):
                     _attach_error_geometries(
                         engine=engine,
                         layer_name=layer_name,
-                        errors=validation_after.get("errors", []),
+                        errors=
+                            validation_after.get(
+                                "errors",
+                                [],
+                            ),
                     )
-                    quality_after = quality_score(
-                        validation_after.get("affected_features", 0),
-                        insertion.get("inserted_rows", 0),
+
+                    quality_after = (
+                        quality_score(
+                            validation_after.get(
+                                "affected_features",
+                                0,
+                            ),
+                            insertion.get(
+                                "inserted_rows",
+                                0,
+                            ),
+                        )
                     )
                 else:
                     validation_after = None
 
-            fixed_layer_geojson = _build_stored_layer_geojson(
-                engine,
-                layer_name,
+            verified_fixes = (
+                _build_verified_fixes(
+                    analysis.get(
+                        "remediation",
+                        [],
+                    ),
+                    validation,
+                    validation_after,
+                )
             )
 
-            improvement = round(
-                quality_after["quality_score"] - quality_before["quality_score"],
-                1,
+            revalidation_summary = (
+                _build_revalidation_summary(
+                    fixes_applied=
+                        fixes_applied,
+                    validation_before=
+                        validation,
+                    validation_after=
+                        validation_after,
+                    quality_before=
+                        quality_before,
+                    quality_after=
+                        quality_after,
+                    verified_fixes=
+                        verified_fixes,
+                )
+            )
+
+            fixed_layer_geojson = (
+                _build_stored_layer_geojson(
+                    engine,
+                    layer_name,
+                )
+            )
+
+            improvement = (
+                revalidation_summary[
+                    "quality_improvement"
+                ]
             )
 
             return {
@@ -600,22 +865,49 @@ def process_vector_upload(
                 "insertion": insertion,
                 "validation": validation,
                 "analysis": analysis,
-                "total_features": quality_after["total_features"],
-                "affected_features": quality_after["affected_features"],
-                "total_findings": (validation_after or validation).get("total_errors", 0),
-                "error_rate": quality_after["error_rate"],
-                "quality_score": quality_after["quality_score"],
-                "compliance_score": quality_after["quality_score"],
-                "quality_before": quality_before,
-                "quality_after": quality_after,
-                "quality_improvement": improvement,
-                "validation_after": validation_after,
-                "layer_geojson": (
-                    layer_geojson
+                "total_features":
+                    quality_after[
+                        "total_features"
+                    ],
+                "affected_features":
+                    quality_after[
+                        "affected_features"
+                    ],
+                "total_findings": (
+                    validation_after
+                    or validation
+                ).get(
+                    "total_errors",
+                    0,
                 ),
-                "fixed_layer_geojson": (
-                    fixed_layer_geojson
-                ),
+                "error_rate":
+                    quality_after[
+                        "error_rate"
+                    ],
+                "quality_score":
+                    quality_after[
+                        "quality_score"
+                    ],
+                "compliance_score":
+                    quality_after[
+                        "quality_score"
+                    ],
+                "quality_before":
+                    quality_before,
+                "quality_after":
+                    quality_after,
+                "quality_improvement":
+                    improvement,
+                "validation_after":
+                    validation_after,
+                "verified_fixes":
+                    verified_fixes,
+                "revalidation_summary":
+                    revalidation_summary,
+                "layer_geojson":
+                    layer_geojson,
+                "fixed_layer_geojson":
+                    fixed_layer_geojson,
             }
 
         finally:

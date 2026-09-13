@@ -7,6 +7,7 @@ import Image from "next/image";
 
 import {
   analyzeMapImage,
+  deliverBatch,
   processVectorFile,
 } from "@/lib/api";
 
@@ -115,6 +116,7 @@ export default function UploadPanel({
       if (workingFiles.length !== files.length) setFiles(workingFiles);
       let finalResult: ProcessingResult | null = null;
       const completed: BatchUploadItem[] = [];
+      const isBatch = workingFiles.length > 1;
       for (let index = 0; index < workingFiles.length; index += 1) {
         const selectedFile = workingFiles[index];
         const mode = detectUploadMode(selectedFile);
@@ -122,9 +124,16 @@ export default function UploadPanel({
         setCurrentFile(index);
         const updateProgress = (filePercent: number) => setProgress(Math.round(((index + filePercent / 100) / workingFiles.length) * 100));
         finalResult = mode === "vector"
-          ? await processVectorFile(selectedFile, undefined, updateProgress)
+          ? await processVectorFile(selectedFile, undefined, updateProgress, !isBatch)
           : await analyzeMapImage(selectedFile, updateProgress);
         completed.push({ result: finalResult, file: selectedFile, mode });
+      }
+      if (isBatch) {
+        const analysisIds = completed
+          .map((item) => item.result.analysis_id)
+          .filter((id): id is string => Boolean(id));
+        try { await deliverBatch(analysisIds); }
+        catch (deliveryError) { console.error("Batch delivery failed:", deliveryError); }
       }
       const finalFile = workingFiles[workingFiles.length - 1];
       const finalMode = detectUploadMode(finalFile);

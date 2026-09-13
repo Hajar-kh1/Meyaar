@@ -99,16 +99,27 @@ export async function processVectorFile(
   file: File,
   layerType?: LayerType,
   onProgress?: (percent: number) => void,
+  deliver = true,
 ): Promise<VectorProcessingResponse> {
   const formData = new FormData();
 
   formData.append("file", file);
+  formData.append("deliver", String(deliver));
 
   if (layerType) {
     formData.append("layer_type", layerType);
   }
 
   return uploadWithProgress<VectorProcessingResponse>(`${API_BASE_URL}/vectors/process`, formData, onProgress);
+}
+
+export async function deliverBatch(analysisIds: string[]): Promise<void> {
+  if (!analysisIds.length) return;
+  await parseResponse(await fetch(`${API_BASE_URL}/delivery/batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ analysis_ids: analysisIds }),
+  }));
 }
 
 // Requests a preview-only suggestion; the agent never edits the uploaded image.
