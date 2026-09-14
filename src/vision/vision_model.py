@@ -1,5 +1,6 @@
 import os
 from functools import lru_cache
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 
 import moondream as md
@@ -7,7 +8,8 @@ from dotenv import load_dotenv
 from PIL import Image
 
 
-load_dotenv()
+PROJECT_ENV = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(PROJECT_ENV)
 
 
 ELEMENT_QUESTIONS = {
@@ -40,6 +42,10 @@ class VisionModelServiceError(RuntimeError):
 
 @lru_cache
 def get_vision_model():
+    # Reload the project's environment file so the vision service works even
+    # when FastAPI is launched from VS Code with another working directory.
+    # This also picks up a key added after an earlier failed request.
+    load_dotenv(PROJECT_ENV)
     api_key = os.getenv("MOONDREAM_API_KEY")
     model_id = os.getenv("MOONDREAM_MODEL_ID")
 

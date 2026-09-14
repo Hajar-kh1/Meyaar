@@ -54,6 +54,35 @@ function colorForSeverity(severity: string) {
 }
 
 
+function asOutlineGeometry(geometry: Geometry): Geometry {
+  // Error polygons are highlights, not thematic areas. Converting their rings
+  // to line geometry makes a red viewport fill impossible at every zoom level,
+  // even if a renderer/browser ignores Leaflet's `fill: false` option.
+  if (geometry.type === "Polygon") {
+    return {
+      type: "MultiLineString",
+      coordinates: geometry.coordinates,
+    };
+  }
+
+  if (geometry.type === "MultiPolygon") {
+    return {
+      type: "MultiLineString",
+      coordinates: geometry.coordinates.flat(),
+    };
+  }
+
+  if (geometry.type === "GeometryCollection") {
+    return {
+      type: "GeometryCollection",
+      geometries: geometry.geometries.map(asOutlineGeometry),
+    };
+  }
+
+  return geometry;
+}
+
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -95,7 +124,9 @@ function ZoomTracker({
   onZoomChange: (zoom: number) => void;
 }) {
   const map = useMapEvents({
-    zoom: () => onZoomChange(map.getZoom()),
+    // Updating React state on every animation frame can interrupt Leaflet's
+    // SVG zoom transform and leave a point marker scaled across the viewport.
+    // Only update once the zoom animation has completely finished.
     zoomend: () => onZoomChange(map.getZoom()),
   });
 
@@ -209,7 +240,7 @@ export default function LeafletMap({
       )
       .map((error) => ({
         type: "Feature",
-        geometry: error.geometry as Geometry,
+        geometry: asOutlineGeometry(error.geometry as Geometry),
         properties: {
           resultId: String(error.result_id),
           featureId: error.feature_id,
@@ -225,6 +256,7 @@ export default function LeafletMap({
       center={[24.7136, 46.6753]}
       zoom={6}
       scrollWheelZoom
+      preferCanvas
       className="h-full min-h-[420px] w-full"
     >
       {basemap === "satellite" ? (
@@ -297,6 +329,7 @@ export default function LeafletMap({
               dashArray: isSelected ? undefined : "6 5",
               lineCap: "round",
               lineJoin: "round",
+              className: "meyaar-error-outline",
             };
           }}
           onEachFeature={(feature, layer) => {

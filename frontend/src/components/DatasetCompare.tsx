@@ -81,7 +81,7 @@ export default function DatasetCompare() {
         </h2>
 
         <p className="mt-2 text-sm text-slate-500">
-          قارن أي مجموعتي بيانات جيومكانية متوافقتين من حيث البنية والمحتوى المكاني والجودة.
+          Compare two compatible geospatial datasets by structure, spatial content, and quality.
         </p>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
@@ -255,7 +255,7 @@ export default function DatasetCompare() {
             </div>
 
             <p className="mt-4 rounded-xl bg-[#f6f9f7] p-4 text-xs leading-6 text-slate-600">
-              العناصر الموجودة في Dataset واحدة فقط أو ذات هندسة مختلفة لا تعتبر أخطاء تلقائيًا؛ هي اختلافات تحتاج تفسيرًا حسب مصدر ونطاق كل Dataset.
+              {"Features found in only one dataset or with different geometry are not automatically errors; they are differences that require interpretation based on each dataset's source and scope."}
             </p>
           </section>
 

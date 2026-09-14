@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { activateTeam, addExistingTeamMember, createTeam, createTeamUser, deleteTeam, getAuthToken, getManagedTeamMemberSummary, getManagedTeamsOverview, getMe, interpretTeamCommands, removeTeamMember, searchUserDirectory, updateTeamMemberRole } from "@/lib/api";
 import type { AuthUser, ManagedTeamMemberOverview, ManagedTeamOverview, NewUserPreview, TeamCommandPlan, TeamDashboardData, UserDirectoryEntry } from "@/types/analysis";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -196,7 +197,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     setBusy(true); setError(""); setAwaitingFollowUp(false); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null); setSentMessage(message);
     try {
       const interpreted = await interpretTeamCommands(message, conversationContext);
-      const next = {
+      const interpretedPlan = {
         ...interpreted,
         actions: interpreted.actions.map((action) => ({
           ...action,
@@ -205,11 +206,11 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
         })),
       };
       const selections: Record<number, string> = {};
-      next.actions.forEach((action, index) => {
+      interpretedPlan.actions.forEach((action, index) => {
         const matches = candidates(action);
         if ((action.action === "remove" || action.action === "change_role") && matches.length === 1) selections[index] = matches[0].user_id;
       });
-      const searches = await Promise.all(next.actions.map(async (action, index) => {
+      const searches = await Promise.all(interpretedPlan.actions.map(async (action, index) => {
         if (action.action !== "add" || !action.name || action.email) return [index, []] as const;
         try { return [index, await searchUserDirectory(action.name)] as const; }
         catch { return [index, []] as const; }
@@ -218,34 +219,34 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
       setDirectoryMatches(matchesByIndex);
       setExistingSelections({});
       setCreateNew({});
-      const unresolvedAddIndex = next.actions.findIndex((action) => action.action === "add" && !action.email);
+      const unresolvedAddIndex = interpretedPlan.actions.findIndex((action) => action.action === "add" && !action.email);
+      let reply = interpretedPlan.reply;
       if (unresolvedAddIndex >= 0) {
-        const action = next.actions[unresolvedAddIndex];
+        const action = interpretedPlan.actions[unresolvedAddIndex];
         const matches = matchesByIndex[unresolvedAddIndex] ?? [];
         if (!action.name?.trim()) {
-          next.reply = /[\u0600-\u06FF]/.test(message) ? "أكيد، مين الشخص اللي تبين تضيفينه؟ اكتبي اسمه." : "Sure. Who would you like to add? Please send their name.";
+          reply = /[\u0600-\u06FF]/.test(message) ? "أكيد، مين الشخص اللي تبين تضيفينه؟ اكتبي اسمه." : "Sure. Who would you like to add? Please send their name.";
         } else if (matches.length) {
           const choices = matches.map((entry, index) => `${index + 1}) ${entry.name} — ${entry.email || entry.username}`).join("\n");
-          next.reply = /[\u0600-\u06FF]/.test(message) ? `لقيت أكثر من حساب قريب من اسم ${action.name}. أي واحد تقصدين؟ اكتبي الرقم:\n${choices}` : `I found matching accounts for ${action.name}. Which one do you mean? Reply with the number:\n${choices}`;
+          reply = /[\u0600-\u06FF]/.test(message) ? `لقيت أكثر من حساب قريب من اسم ${action.name}. أي واحد تقصدين؟ اكتبي الرقم:\n${choices}` : `I found matching accounts for ${action.name}. Which one do you mean? Reply with the number:\n${choices}`;
         } else {
           const username = action.suggested_username || action.name?.toLowerCase().replace(/\s+/g, ".") || "user";
-          next.reply = /[\u0600-\u06FF]/.test(message) ? `تمام، بجهز حساب ${action.name} باسم مستخدم ${username}، والدور ${action.role === "leader" ? "قائد فريق" : "عضو"}. أرسلي البريد الشخصي عشان أرسل بيانات الدخول لصاحب الحساب.` : `I’ll prepare ${action.name} with username ${username} as ${action.role}. Please send their personal email so I can deliver the credentials.`;
+          reply = /[\u0600-\u06FF]/.test(message) ? `تمام، بجهز حساب ${action.name} باسم مستخدم ${username}، والدور ${action.role === "leader" ? "قائد فريق" : "عضو"}. أرسلي البريد الشخصي عشان أرسل بيانات الدخول لصاحب الحساب.` : `I’ll prepare ${action.name} with username ${username} as ${action.role}. Please send their personal email so I can deliver the credentials.`;
         }
       }
-      setMemberSelections(selections); setPlan(next);
-      const needsMemberChoice = next.actions.some((action, index) => (action.action === "remove" || action.action === "change_role") && !selections[index]);
-      const needsSafetyConfirmation = next.actions.some((action) => action.action === "delete_team");
+      const needsMemberChoice = interpretedPlan.actions.some((action, index) => (action.action === "remove" || action.action === "change_role") && !selections[index]);
+      const needsSafetyConfirmation = interpretedPlan.actions.some((action) => action.action === "delete_team");
       if (needsMemberChoice) {
-        const actionIndex = next.actions.findIndex((action, index) => (action.action === "remove" || action.action === "change_role") && !selections[index]);
-        const choices = candidates(next.actions[actionIndex]).map((member, index) => `${index + 1}) ${member.name} — ${member.email}`).join("\n");
-        next.reply = /[\u0600-\u06FF]/.test(message) ? `لقيت أكثر من عضو محتمل. اختاري الرقم وبنفذ مباشرة:\n${choices}` : `I found multiple possible members. Choose a number and I’ll proceed immediately:\n${choices}`;
-        setPlan({ ...next });
+        const actionIndex = interpretedPlan.actions.findIndex((action, index) => (action.action === "remove" || action.action === "change_role") && !selections[index]);
+        const choices = candidates(interpretedPlan.actions[actionIndex]).map((member, index) => `${index + 1}) ${member.name} — ${member.email}`).join("\n");
+        reply = /[\u0600-\u06FF]/.test(message) ? `لقيت أكثر من عضو محتمل. اختاري الرقم وبنفذ مباشرة:\n${choices}` : `I found multiple possible members. Choose a number and I’ll proceed immediately:\n${choices}`;
       }
       if (needsSafetyConfirmation) {
-        next.reply = /[\u0600-\u06FF]/.test(message) ? `حذف فريق ${data.team.name} نهائي وسيحذف بياناته المرتبطة. إذا تبين أكمل، اكتبي اسم الفريق بالضبط: ${data.team.name}` : `Deleting ${data.team.name} is permanent and removes its related data. To continue, type the team name exactly: ${data.team.name}`;
-        setPlan({ ...next });
+        reply = /[\u0600-\u06FF]/.test(message) ? `حذف فريق ${data.team.name} نهائي وسيحذف بياناته المرتبطة. إذا تبين أكمل، اكتبي اسم الفريق بالضبط: ${data.team.name}` : `Deleting ${data.team.name} is permanent and removes its related data. To continue, type the team name exactly: ${data.team.name}`;
       }
-      if (unresolvedAddIndex < 0 && !needsMemberChoice && !needsSafetyConfirmation) await execute(next, {}, selections, false, message);
+      const nextPlan = { ...interpretedPlan, reply };
+      setMemberSelections(selections); setPlan(nextPlan);
+      if (unresolvedAddIndex < 0 && !needsMemberChoice && !needsSafetyConfirmation) await execute(nextPlan, {}, selections, false, message);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The assistant could not understand the request.");
     } finally { setBusy(false); }
@@ -324,17 +325,8 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     finally { setBusy(false); }
   }
 
-  function resetChat() { continueConversation(); }
-
-  function continueConversation() {
-    if (results?.length) setChatHistory((history) => [...history, { role: "assistant", text: `${copy.completed}\n${results.join("\n")}` }]);
-    setPlan(null); setResults(null); setManagedTeams(null); setSelectedManagedTeam(null); setListedMembers(null);
-    setInstruction(""); setError(""); setDirectoryMatches({}); setExistingSelections({}); setCreateNew({});
-    setAwaitingFollowUp(true);
-  }
-
   const pageIsArabic = language === "ar";
-  const conversationIsArabic = (conversationLanguage ?? conversationLanguageRef.current) ? (conversationLanguage ?? conversationLanguageRef.current) === "ar" : pageIsArabic;
+  const conversationIsArabic = conversationLanguage ? conversationLanguage === "ar" : pageIsArabic;
   const isArabic = conversationIsArabic;
   const copy = conversationIsArabic ? {
     title: "مساعد إدارة الفريق", online: "متصل الآن", greeting: "كيف أقدر أساعدك في إدارة الفريق؟", example: "اكتبي طلبك بالعربي أو الإنجليزي، مثل: «أنشئ فريق جودة وأضف سارة كقائدة فريق».", preparing: "جارٍ تجهيز مراجعة طلبك…", completed: "تم تنفيذ الطلب", more: "هل تحتاجين مساعدة أخرى؟", newTask: "مهمة جديدة", end: "إنهاء المحادثة", review: "راجعي الخطة ثم أكدي التنفيذ", placeholder: "اكتبي طلبك لإدارة الفريق…", quick: [
@@ -360,7 +352,7 @@ export default function TeamManagementAssistant({ data, onClose, onComplete }: P
     <div className="team-assistant-chat fixed inset-0 z-[6000] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true">
       <section className="flex h-[min(640px,86vh)] w-full max-w-[460px] flex-col overflow-hidden rounded-[22px] border border-emerald-100 bg-[#f7fbfa] shadow-[0_24px_70px_rgba(2,38,33,.24)]">
         <header dir="ltr" className="grid grid-cols-[52px_1fr_32px] items-center gap-2 border-b border-emerald-100 bg-white px-4 py-3.5">
-          <img src="/branding/meyaar-version-three-logo.png" alt="Meyaar" className="h-12 w-12 object-contain" />
+          <Image src="/branding/meyaar-version-three-logo.png" alt="Meyaar" width={48} height={48} className="h-12 w-12 object-contain" />
           <div dir={pageIsArabic ? "rtl" : "ltr"} className="text-center"><h2 className="text-[15px] font-black text-[#082a35]">{pageIsArabic ? "مساعد إدارة الفريق" : "Team Management Assistant"}</h2><p className="mt-0.5 text-[11px] text-slate-500">{pageIsArabic ? "أنا هنا لمساعدتك في إدارة أعضاء الفريق" : "Here to help you manage your team"}</p></div>
           <button type="button" onClick={onClose} aria-label="Close" className="flex size-8 items-center justify-center rounded-full text-xl text-slate-500 transition hover:bg-emerald-50 hover:text-[#087363]">×</button>
         </header>

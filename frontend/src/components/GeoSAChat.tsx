@@ -9,6 +9,7 @@ import {
   askGeoSA,
   type GeoSASource,
 } from "@/lib/intelligence-api";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface Message {
   role: "user" | "assistant";
@@ -18,6 +19,8 @@ interface Message {
 }
 
 export default function GeoSAChat() {
+  const { language, t } = useLanguage();
+
   const [messages, setMessages] =
     useState<Message[]>([]);
   const [input, setInput] =
@@ -75,7 +78,7 @@ export default function GeoSAChat() {
           text:
             error instanceof Error
               ? error.message
-              : "تعذر تنفيذ الطلب.",
+              : t("The request could not be completed."),
         },
       ]);
     } finally {
@@ -101,7 +104,7 @@ export default function GeoSAChat() {
 
     if (!SpeechRecognition) {
       alert(
-        "المتصفح لا يدعم الإدخال الصوتي."
+        t("Voice input is not supported by this browser.")
       );
       return;
     }
@@ -109,7 +112,7 @@ export default function GeoSAChat() {
     const recognition =
       new SpeechRecognition();
 
-    recognition.lang = "ar-SA";
+    recognition.lang = language === "ar" ? "ar-SA" : "en-US";
     recognition.interimResults = false;
 
     recognition.onresult = (
@@ -138,7 +141,7 @@ export default function GeoSAChat() {
         text
       );
 
-    utterance.lang = "ar-SA";
+    utterance.lang = language === "ar" ? "ar-SA" : "en-US";
 
     window.speechSynthesis.speak(
       utterance
@@ -146,10 +149,10 @@ export default function GeoSAChat() {
   }
 
   const suggestions = [
-    "ما هي عناصر جودة البيانات الجيومكانية؟",
-    "ما المرجع المكاني الوطني المستخدم في السعودية؟",
-    "ما متطلبات جودة بيانات الطرق؟",
-  ];
+    "What are the elements of geospatial data quality?",
+    "What national spatial reference is used in Saudi Arabia?",
+    "What are the quality requirements for road data?",
+  ].map(t);
 
   return (
     <section className="mx-auto flex min-h-[calc(100vh-125px)] max-w-5xl flex-col overflow-hidden rounded-3xl border border-[#dfe8e3] bg-white shadow-sm">
@@ -159,11 +162,11 @@ export default function GeoSAChat() {
         </p>
 
         <h2 className="mt-1 text-xl font-extrabold text-[#17332f]">
-          مساعد معايير GeoSA
+          GeoSA Standards Assistant
         </h2>
 
         <p className="mt-1 text-sm text-slate-500">
-          اسأل عن معايير GeoSA أو أرفق ملفًا لتحليله بالاعتماد على المصادر الرسمية.
+          Ask about GeoSA standards or attach a file for analysis using official sources.
         </p>
       </div>
 
@@ -175,11 +178,11 @@ export default function GeoSAChat() {
             </div>
 
             <h3 className="mt-4 text-xl font-bold text-[#17332f]">
-              كيف أقدر أساعدك؟
+              How can I help?
             </h3>
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              أقدر أبحث في مستندات GeoSA وأربطها بملفك.
+              I can search GeoSA documents and connect the evidence to your file.
             </p>
 
             <div className="mt-6 flex flex-wrap justify-center gap-2">
@@ -248,7 +251,7 @@ export default function GeoSAChat() {
                     }
                     className="text-xs font-semibold text-[#0b7664]"
                   >
-                    🔊 استماع
+                    🔊 Listen
                   </button>
                 </div>
               )}
@@ -256,7 +259,7 @@ export default function GeoSAChat() {
               {!!message.sources?.length && (
                 <details className="mt-3 rounded-xl border border-[#dfe8e3] bg-white p-3">
                   <summary className="cursor-pointer text-xs font-bold text-[#0b7664]">
-                    المصادر (
+                    Sources (
                     {
                       message.sources
                         .length
@@ -283,7 +286,7 @@ export default function GeoSAChat() {
                           </strong>
 
                           <span className="text-slate-500">
-                            صفحة{" "}
+                            Page{" "}
                             {
                               source.page
                             }
@@ -306,7 +309,7 @@ export default function GeoSAChat() {
 
         {loading && (
           <div className="me-auto rounded-2xl border border-[#dfe8e3] bg-white px-5 py-3 text-sm text-slate-500">
-            جاري البحث في مصادر GeoSA...
+            Searching GeoSA sources...
           </div>
         )}
       </div>
@@ -358,7 +361,7 @@ export default function GeoSAChat() {
           <textarea
             value={input}
             rows={1}
-            placeholder="اسأل عن معايير GeoSA..."
+            placeholder="Ask about GeoSA standards..."
             onChange={(event) =>
               setInput(
                 event.target.value
@@ -401,7 +404,7 @@ export default function GeoSAChat() {
         </div>
 
         <p className="mt-2 text-center text-[10px] text-slate-400">
-          الإجابات مبنية على مستندات GeoSA المسترجعة. راجع المصدر عند اتخاذ قرار رسمي.
+          Answers are grounded in retrieved GeoSA documents. Review the source before making an official decision.
         </p>
       </div>
     </section>

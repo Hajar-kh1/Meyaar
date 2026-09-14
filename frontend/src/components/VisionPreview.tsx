@@ -22,7 +22,6 @@ export default function VisionPreview({ result, imageUrl }: VisionPreviewProps) 
   const [agentError, setAgentError] = useState<string | null>(null);
   const imageShellRef = useRef<HTMLDivElement>(null);
   const missingElements = result.elements.filter((element) => !element.present);
-  const titleMissing = missingElements.some((element) => element.element === "title");
   const arabic = language === "ar";
   const copy = arabic ? { add: "إكمال عناصر الخريطة", placeholder: "اكتبي عنوان الخريطة", remove: "حذف", download: "تنزيل النسخة المعدّلة", position: "موضع العنوان", left: "يسار", center: "وسط", right: "يمين", note: "هذه معاينة مؤقتة؛ الصورة الأصلية لن تتغير.", legend: "المفتاح", scale: "مقياس الرسم", north: "سهم الشمال", addItem: "إضافة", removeItem: "إزالة", missing: "عناصر ناقصة", none: "كل عناصر الخريطة موجودة", manual: "هل تريد أن تقوم بإصلاحه؟", agent: "أو أقوم أنا بإصلاحه؟", proposed: "اقتراح الإيجنت" } : { add: "Complete map elements", placeholder: "Enter map title", remove: "Remove", download: "Download updated copy", position: "Title position", left: "Left", center: "Center", right: "Right", note: "This is a temporary preview; your original image is unchanged.", legend: "Legend", scale: "Scale", north: "North arrow", addItem: "Add", removeItem: "Remove", missing: "Missing elements", none: "All map elements are present", manual: "Would you like to fix it yourself?", agent: "Or should I suggest a fix?", proposed: "Agent suggestion" };
 

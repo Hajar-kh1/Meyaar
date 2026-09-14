@@ -357,6 +357,14 @@ textarea:focus-visible {
 .dark .meyaar-dashboard thead { background: #112a34; }
 .dark .meyaar-dashboard tbody { background: #0d222b; }
 
+/* Error geometry must always remain an outline.  The explicit SVG rule is a
+   safety net for Leaflet redraws during animated zooms. */
+.leaflet-overlay-pane path.meyaar-error-outline {
+  fill: none !important;
+  fill-opacity: 0 !important;
+  vector-effect: non-scaling-stroke;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }

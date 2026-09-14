@@ -6,6 +6,30 @@ It combines deterministic spatial validation, agentic analysis, GeoSA-grounded R
 
 > MEYAAR is an MVP and research project. It supports geospatial quality and standards-review workflows; it is not an official GeoSA certification tool.
 
+## Project Status
+
+MEYAAR is delivered as a complete full-stack MVP for local deployment and demonstration. The repository includes the web application, REST API, PostGIS development environment, deterministic validation pipelines, AI-assisted workflows, automated tests, and local setup documentation.
+
+| Item | Details |
+| --- | --- |
+| Delivery type | Full-stack academic MVP |
+| User interface | Arabic and English with RTL/LTR support |
+| Backend API | FastAPI with interactive OpenAPI documentation |
+| Spatial database | PostgreSQL 16 + PostGIS 3.5 via Docker Compose |
+| Supported environment | Windows development environment |
+| Source license | MIT; third-party assets retain their own terms |
+
+## Contents
+
+- [Features](#features)
+- [Intelligence Workspace](#intelligence-workspace)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Technology Stack](#technology-stack)
+- [Local Setup](#local-setup-windows)
+- [Verification and Tests](#verification-and-tests)
+- [Design and Security](#important-design-principles)
+
 ## Features
 
 ### Vector Data Quality
@@ -315,7 +339,17 @@ Meyaar/
 - React
 - TypeScript
 
-## Run Locally (Windows)
+## Local Setup (Windows)
+
+### Prerequisites
+
+Install the following before starting the project:
+
+- [Git](https://git-scm.com/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [Node.js](https://nodejs.org/) 20 or later
+- [uv](https://docs.astral.sh/uv/) for Python environment and dependency management
+- Python 3.12 or later, managed automatically by `uv` when available
 
 Install `uv` once, then run Python commands from the repository root.
 
@@ -335,6 +369,15 @@ MEYAAR_DATABASE_URL=postgresql+psycopg2://postgres@127.0.0.1:55432/meyaar_db
 
 AI-powered features also require the corresponding API credentials configured in `.env`.
 
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `MEYAAR_DATABASE_URL` | Yes | PostgreSQL/PostGIS connection string |
+| `MOONDREAM_API_KEY` | For vision AI | Map-image analysis provider credential |
+| `MOONDREAM_MODEL_ID` | For vision AI | Vision model identifier |
+| `BREVO_API_KEY` | For Brevo delivery | Transactional report email delivery |
+| `BREVO_SENDER_EMAIL` | For Brevo delivery | Verified sender address |
+| `MEYAAR_SMTP_*` | For SMTP delivery | Alternative outgoing email configuration |
+
 ### 2. Start PostGIS
 
 Make sure Docker Desktop is running.
@@ -350,7 +393,7 @@ docker ps
 
 ```powershell
 uv sync
-uv run uvicorn src.api.main:app --port 8000
+uv run uvicorn src.api.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 API documentation:
@@ -375,11 +418,56 @@ Open:
 http://localhost:3000
 ```
 
+### Local Service Endpoints
+
+| Service | URL |
+| --- | --- |
+| MEYAAR web application | [http://localhost:3000](http://localhost:3000) |
+| Backend API | [http://127.0.0.1:8000](http://127.0.0.1:8000) |
+| Interactive API documentation | [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) |
+| PostGIS | `127.0.0.1:55432` |
+
 ### 5. Stop the Database
 
 ```powershell
 docker compose -f docker-compose.vector-dev.yml down
 ```
+
+## Verification and Tests
+
+Run backend tests from the repository root:
+
+```powershell
+uv run pytest
+```
+
+Run frontend quality checks from the `frontend` directory:
+
+```powershell
+npm.cmd run lint
+npm.cmd run build
+```
+
+For a quick delivery check, confirm that Docker reports `meyaar-postgis-dev` as healthy, the API documentation opens successfully, and the web application can register or sign in a user.
+
+## Troubleshooting
+
+### Login displays `Failed to fetch`
+
+The frontend cannot reach the API. Keep the backend terminal running and verify that [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) opens in the browser.
+
+### Database connection fails
+
+Start Docker Desktop, run the PostGIS Compose command again, and check the container state:
+
+```powershell
+docker compose -f docker-compose.vector-dev.yml up -d
+docker ps
+```
+
+### Port already in use
+
+Stop the older development process using port `3000`, `8000`, or `55432`, then start the affected service again.
 
 ## GeoSA RAG Index
 

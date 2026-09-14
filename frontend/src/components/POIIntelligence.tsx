@@ -5,19 +5,24 @@ import {
   useState,
 } from "react";
 
+import { useLanguage } from "@/components/LanguageProvider";
+
 import {
   analyzePOI,
   type POIResponse,
 } from "@/lib/intelligence-api";
 
 export default function POIIntelligence() {
+  const { t } = useLanguage();
+  const defaultQuestion = t(
+    "Analyze POI quality and identify important issues according to GeoSA."
+  );
+
   const [file, setFile] =
     useState<File | null>(null);
 
   const [question, setQuestion] =
-    useState(
-      "حلل جودة نقاط الاهتمام وهل توجد مشاكل مهمة حسب GeoSA؟"
-    );
+    useState<string | null>(null);
 
   const [result, setResult] =
     useState<POIResponse | null>(
@@ -54,7 +59,7 @@ export default function POIIntelligence() {
       setResult(
         await analyzePOI(
           file,
-          question
+          question ?? defaultQuestion
         )
       );
     } finally {
@@ -74,7 +79,7 @@ export default function POIIntelligence() {
         </h2>
 
         <p className="mt-2 text-sm text-slate-500">
-          ارفع بيانات نقاط الاهتمام ودع الـAgent يختار أدوات التحليل المناسبة.
+          Upload a POI dataset and let the agent select the appropriate analysis tools.
         </p>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_1.6fr_auto]">
@@ -98,7 +103,7 @@ export default function POIIntelligence() {
           </label>
 
           <textarea
-            value={question}
+            value={question ?? defaultQuestion}
             onChange={(event) =>
               setQuestion(
                 event.target.value

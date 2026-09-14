@@ -54,7 +54,7 @@ export default function GeoRFPAssistant() {
         </h2>
 
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          اكتب وصف المشروع وسيتم إنشاء الجزء الجيومكاني فقط من وثيقة RFP بالاعتماد على مصادر GeoSA.
+          Describe the project and the geospatial section of the RFP will be generated using GeoSA sources.
         </p>
 
         <textarea
@@ -64,7 +64,7 @@ export default function GeoRFPAssistant() {
               event.target.value
             )
           }
-          placeholder="مثال: مشروع لتحديث بيانات الطرق والمباني داخل مدينة الرياض وتسليم البيانات الجيومكانية وفق متطلبات الجودة..."
+          placeholder="Example: A project to update road and building data in Riyadh and deliver geospatial data according to quality requirements..."
           className="mt-6 min-h-[270px] w-full resize-none rounded-2xl border border-[#cadbd4] bg-[#fbfdfc] p-4 text-sm leading-7 outline-none focus:border-[#4e9b89]"
         />
 
@@ -99,7 +99,7 @@ export default function GeoRFPAssistant() {
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                النتيجة والمصادر ستظهر هنا بعد توليد الوثيقة.
+                The result and its sources will appear here after generation.
               </p>
             </div>
           </div>
@@ -134,7 +134,7 @@ export default function GeoRFPAssistant() {
 
             <article className="mt-5 whitespace-pre-wrap text-sm leading-8 text-[#344b46]">
               {result.rfp ??
-                "تعذر توليد المتطلبات."}
+                "The requirements could not be generated."}
             </article>
 
             {!!result.sources
