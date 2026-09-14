@@ -98,10 +98,24 @@ class VectorProcessingResponse(BaseModel):
     total_findings: int = 0
     error_rate: float = 0.0
     quality_score: float = 100.0
-    quality_before: dict[str, Any] = Field(default_factory=dict)
-    quality_after: dict[str, Any] = Field(default_factory=dict)
+
+    quality_before: dict[str, Any] = Field(
+        default_factory=dict
+    )
+    quality_after: dict[str, Any] = Field(
+        default_factory=dict
+    )
     quality_improvement: float = 0.0
+
     validation_after: dict[str, Any] | None = None
+
+    verified_fixes: list[dict[str, Any]] = Field(
+        default_factory=list
+    )
+    revalidation_summary: dict[str, Any] = Field(
+        default_factory=dict
+    )
+
     layer_geojson: dict[str, Any] = Field(
         default_factory=lambda: {
             "type": "FeatureCollection",
@@ -109,6 +123,7 @@ class VectorProcessingResponse(BaseModel):
         }
     )
     fixed_layer_geojson: dict[str, Any] | None = None
+
     analysis_id: str | None = None
     # Upload batch id (see VisionAnalysisResponse.batch_id).
     batch_id: str | None = None
@@ -252,8 +267,14 @@ class NewUserInterpretRequest(BaseModel):
 
 
 class TeamCommandBatchRequest(BaseModel):
-    instruction: str = Field(min_length=3, max_length=3000)
-    context: str | None = Field(default=None, max_length=6000)
+    instruction: str = Field(
+        min_length=3,
+        max_length=3000,
+    )
+    context: str | None = Field(
+        default=None,
+        max_length=6000,
+    )
 
 
 class BatchReportRequest(BaseModel):

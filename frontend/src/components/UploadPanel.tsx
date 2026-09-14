@@ -7,6 +7,7 @@ import Image from "next/image";
 
 import {
   analyzeMapImage,
+  deliverBatch,
   processVectorFile,
 } from "@/lib/api";
 
@@ -118,6 +119,7 @@ export default function UploadPanel({
       // One id for this whole selection: every file uploaded below carries it,
       // which is what lets the assistant answer questions about the folder.
       const batchId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : undefined;
+      const isBatch = workingFiles.length > 1;
       for (let index = 0; index < workingFiles.length; index += 1) {
         const selectedFile = workingFiles[index];
         const mode = detectUploadMode(selectedFile);
@@ -125,9 +127,16 @@ export default function UploadPanel({
         setCurrentFile(index);
         const updateProgress = (filePercent: number) => setProgress(Math.round(((index + filePercent / 100) / workingFiles.length) * 100));
         finalResult = mode === "vector"
-          ? await processVectorFile(selectedFile, undefined, updateProgress, batchId)
+          ? await processVectorFile(selectedFile, undefined, updateProgress, batchId, !isBatch)
           : await analyzeMapImage(selectedFile, updateProgress, batchId);
         completed.push({ result: finalResult, file: selectedFile, mode });
+      }
+      if (isBatch) {
+        const analysisIds = completed
+          .map((item) => item.result.analysis_id)
+          .filter((id): id is string => Boolean(id));
+        try { await deliverBatch(analysisIds); }
+        catch (deliveryError) { console.error("Batch delivery failed:", deliveryError); }
       }
       const finalFile = workingFiles[workingFiles.length - 1];
       const finalMode = detectUploadMode(finalFile);
